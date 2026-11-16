@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>OIGNON SAFE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap">
+<style>
+/* Concept : une application mobile en colonne unique, grandes zones tactiles, couleurs du pitch deck (bleu nuit, orange, vert). */
+:root{
+  --bg:#eef2f8; --surface:#ffffff; --ink:#12233f; --muted:#56667f; --line:#d5deec;
+  --primary:#12315c; --on-primary:#ffffff; --accent:#f28c28; --on-accent:#12233f; --navy:#12315c;
+  --green:#1b8456; --green-tint:#e3f4ec; --amber:#935200; --amber-tint:#fdf0dc;
+  --red:#b73125; --red-tint:#fbe6e3; --blue:#1f6fd1; --blue-tint:#e4eefb;
+  --violet:#6b3fc4; --violet-tint:#efe8fb; --focus:#1f6fd1;
+  --font-display:'Poppins',system-ui,sans-serif; --font-body:'Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1424; --surface:#142238; --ink:#e9eff9; --muted:#a3b3cd; --line:#26385a;
+  --primary:#5a9bf0; --on-primary:#08121f; --accent:#f28c28; --on-accent:#12233f;
+  --green:#4cc38a; --green-tint:#12352a; --amber:#f0b25a; --amber-tint:#3a2a10;
+  --red:#ff8a7d; --red-tint:#3d1a17; --blue:#6aa8f5; --blue-tint:#162b4a;
+  --violet:#b79bf2; --violet-tint:#2a1f47; --focus:#8bbcff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1424; --surface:#142238; --ink:#e9eff9; --muted:#a3b3cd; --line:#26385a;
+  --primary:#5a9bf0; --on-primary:#08121f; --accent:#f28c28; --on-accent:#12233f;
+  --green:#4cc38a; --green-tint:#12352a; --amber:#f0b25a; --amber-tint:#3a2a10;
+  --red:#ff8a7d; --red-tint:#3d1a17; --blue:#6aa8f5; --blue-tint:#162b4a;
+  --violet:#b79bf2; --violet-tint:#2a1f47; --focus:#8bbcff; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--font-body);
+  padding-block:12px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.app{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font:700 1.5rem/1.2 var(--font-display);text-wrap:balance;margin:0}
+h2{font:700 1.1rem/1.25 var(--font-display);margin:0;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font:700 1.05rem var(--font-display);letter-spacing:.03em}
+.logo{width:38px;height:38px;border-radius:11px;background:var(--navy);color:var(--accent);display:grid;place-items:center}
+.top-r{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:var(--surface);
+  font-weight:600;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
+.net.off .dot{background:var(--amber)}
+.ic{display:block;flex:none}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.pagehead{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.back{min-height:44px;padding:0 14px 0 8px;border-radius:12px;border:0;background:transparent;color:var(--primary);
+  font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{min-height:128px;border-radius:18px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  padding:14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;
+  text-align:left;cursor:pointer;font:700 1.05rem/1.2 var(--font-display);min-width:0}
+.tile small{display:block;font:400 .85rem/1.3 var(--font-body);color:var(--muted);margin-top:3px}
+.tile.hero{grid-column:1/-1;background:var(--accent);color:var(--on-accent);border-color:transparent;
+  flex-direction:row;align-items:center;min-height:104px;font-size:1.25rem}
+.tile.hero small{color:inherit}
+.ico{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;flex:none}
+.ico.n{background:var(--navy);color:var(--accent)}
+.ico.g{background:var(--green-tint);color:var(--green)}
+.ico.b{background:var(--blue-tint);color:var(--blue)}
+.ico.v{background:var(--violet-tint);color:var(--violet)}
+.ico.a{background:var(--amber-tint);color:var(--amber)}
+
+.btn{min-height:56px;border-radius:14px;border:0;font:700 1.05rem var(--font-display);padding:0 18px;cursor:pointer;
+  background:var(--primary);color:var(--on-primary);display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.btn.accent{background:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
+.btn.danger{background:var(--red);color:var(--bg)}
+.btn.sm{min-height:46px;font-size:.95rem;padding:0 14px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+
+label{font-weight:600;font-size:.95rem;display:block;margin-bottom:4px}
+input,select,textarea{width:100%;min-height:52px;border-radius:12px;border:2px solid var(--line);background:var(--surface);padding:0 12px;font-size:1.05rem}
+textarea{padding:10px 12px;min-height:110px;font:.8rem/1.4 ui-monospace,Menlo,Consolas,monospace}
+.form{gap:14px}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:5px;border-radius:14px}
+.seg button{min-height:48px;border-radius:10px;border:0;background:transparent;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--primary);color:var(--on-primary)}
+.dots{display:flex;justify-content:center;gap:14px;padding:6px 0}
+.dots i{width:18px;height:18px;border-radius:50%;border:2px solid var(--muted)}
+.dots i.f{background:var(--primary);border-color:var(--primary)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{height:64px;border-radius:16px;border:2px solid var(--line);background:var(--surface);font:700 1.5rem var(--font-display);cursor:pointer}
+.key.s{font-size:1rem;border-style:dashed}
+
+.pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:14px;font-weight:600;font-size:.82rem;white-space:nowrap}
+.pill.good{background:var(--green-tint);color:var(--green)}
+.pill.warn{background:var(--amber-tint);color:var(--amber)}
+.pill.bad{background:var(--red-tint);color:var(--red)}
+.pill.info{background:var(--blue-tint);color:var(--blue)}
+.lot-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.lot-head>div{min-width:0}
+.big{font:700 2rem/1.1 var(--font-display);font-variant-numeric:tabular-nums}
+.big small{font:500 .95rem var(--font-body);color:var(--muted)}
+.states{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.states button{min-height:46px;border-radius:10px;border:2px solid var(--line);background:var(--surface);font-weight:600;font-size:.85rem;cursor:pointer;padding:0 4px}
+.states button.on.good{background:var(--green-tint);border-color:var(--green);color:var(--green)}
+.states button.on.warn{background:var(--amber-tint);border-color:var(--amber);color:var(--amber)}
+.states button.on.bad{background:var(--red-tint);border-color:var(--red);color:var(--red)}
+.inline{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:12px}
+
+.alert{border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start}
+.alert.warn{background:var(--amber-tint);color:var(--amber)}
+.alert.bad{background:var(--red-tint);color:var(--red)}
+.alert.good{background:var(--green-tint);color:var(--green)}
+.alert strong{display:block}
+.alert p{color:var(--ink);font-size:.92rem}
+.days{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center}
+.days div{background:var(--bg);border-radius:12px;padding:8px 2px;min-width:0}
+.days b{display:block;font:700 1.15rem var(--font-display);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.stat b{display:block;font:700 1.4rem/1.2 var(--font-display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat span{color:var(--muted);font-size:.85rem}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:.8rem}
+ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.tag{font-size:.78rem;color:var(--amber);font-weight:600}
+.hint{background:var(--blue-tint);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:.88rem}
+.logline{display:flex;justify-content:space-between;gap:10px;font-size:.88rem;border-bottom:1px solid var(--line);padding:6px 0}
+.logline span:last-child{color:var(--muted);white-space:nowrap}
+.langs{display:flex;gap:8px;flex-wrap:wrap}
+.langs button{min-height:44px;padding:0 14px;border-radius:22px;border:2px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer}
+.langs button.on{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.foot{text-align:center;font-size:.8rem;color:var(--muted)}
+.toastbox{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;pointer-events:none;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:20}
+.toast{background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:14px;font-weight:600;max-width:440px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translateY(8px);opacity:0}}}
+@media (max-width:360px){.tiles{grid-template-columns:1fr}.tile.hero{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top" id="top"></header>
+  <main id="view"><p class="muted">Chargement…</p></main>
+  <p class="foot">Prototype de démonstration. Les données restent sur cet appareil.</p>
+</div>
+<div class="toastbox" aria-live="polite"><div class="toast" id="toast" hidden></div></div>
+
+<script>
+(function(){
+'use strict';
+var KEY='oignonsafe.v1', mem=null, db=null;
+var session=null, screen='login', role='resp', loginPid='', pin='', busy=false;
+var ui={online:!(typeof navigator!=='undefined'&&navigator.onLine===false),open:null,done:null,confirm:null,lang:'fr'};
+
+/* ---------- utilitaires ---------- */
+function $(s){return document.querySelector(s)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function fmt(n){return new Intl.NumberFormat('fr-FR').format(Math.round(n*10)/10)}
+function pad2(n){return String(n).padStart(2,'0')}
+function dstr(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
+function today(){return dstr(new Date())}
+function daysAgo(n){var d=new Date();d.setDate(d.getDate()-n);return dstr(d)}
+function fdate(s){try{return new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}catch(e){return s}}
+function ftime(t){try{return new Date(t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
+function rnd(){try{return Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(8)),function(x){return pad2(x.toString(16))}).join('')}catch(e){return Math.random().toString(16).slice(2,18)}}
+function rndPin(){try{return String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,'0')}catch(e){return String(Math.floor(Math.random()*10000)).padStart(4,'0')}}
+function val(id){var e=document.getElementById(id);return e?e.value.trim():''}
+function num(id){var v=val(id).replace(',','.');return v===''?NaN:Number(v)}
+var toastT;
+function toast(m){var t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
+
+var P={
+ onion:'<path d="M12 2.5c.3 2-.6 3.2-1.8 4.2C7.2 8.2 5 10.8 5 14a7 6.5 0 0 0 14 0c0-3.2-2.2-5.8-5.2-7.3C12.6 5.7 11.7 4.5 12 2.5z"/><path d="M12 7.5c-1.6 2-2.4 4.2-2.4 6.5M12 7.5c1.6 2 2.4 4.2 2.4 6.5"/>',
+ store:'<path d="M3 10l9-6 9 6v10H3z"/><path d="M8 20v-6h8v6"/>',
+ bulb:'<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+ people:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.5 0 4.5 2 4.5 5"/>',
+ chart:'<path d="M4 20V4M4 20h16"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>',
+ sound:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+ sun:'<circle cx="8" cy="9" r="3.2"/><path d="M8 2.5V4M8 14v1.5M1.5 9H3M13 9h1.5M3.4 4.4l1 1M11.6 4.4l-1 1"/><path d="M9 19h8.5a3.5 3.5 0 0 0 .3-7 5 5 0 0 0-9.3 1.2A3 3 0 0 0 9 19z"/>',
+ shield:'<path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+ back:'<path d="M15 5l-7 7 7 7"/>',
+ sync:'<path d="M20 11a8 8 0 0 0-14-4M4 13a8 8 0 0 0 14 4"/><path d="M6 3v4h4M18 21v-4h-4"/>',
+ warn:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>'
+};
+function ic(n,s){s=s||24;return '<svg class="ic" width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[n]+'</svg>'}
+
+/* ---------- sécurité : hachage des codes ---------- */
+async function hashPin(p,salt){
+  try{ if(window.crypto&&crypto.subtle){
+    var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+':'+p));
+    return Array.prototype.map.call(new Uint8Array(b),function(x){return pad2(x.toString(16))}).join('');
+  }}catch(e){}
+  var h=2166136261,s=salt+':'+p;
+  for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}
+  return 'f'+h.toString(16);
+}
+async function mkCred(p){var salt=rnd();return{salt:salt,hash:await hashPin(p,salt)}}
+
+/* ---------- données ---------- */
+function loadDb(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.v===1&&Array.isArray(d.lots))return d}}catch(e){}return mem}
+function saveDb(){mem=db;try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
+async function seed(){
+  var c1=await mkCred('1111'),c2=await mkCred('2222'),c3=await mkCred('3333');
+  return {v:1,demo:true,lastSync:null,lock:{},audit:[],
+    manager:await mkCred('1234'),
+    producers:[
+      {id:'p1',name:'Mamadou Ba',phone:'',salt:c1.salt,hash:c1.hash},
+      {id:'p2',name:'Aïssata Sow',phone:'',salt:c2.salt,hash:c2.hash},
+      {id:'p3',name:'Ousmane Diallo',phone:'',salt:c3.salt,hash:c3.hash}],
+    lots:[
+      {id:'l1',pid:'p1',kg:400,date:daysAgo(14),state:'bon',lost:0,synced:true},
+      {id:'l2',pid:'p2',kg:250,date:daysAgo(9),state:'surveiller',lost:15,synced:true},
+      {id:'l3',pid:'p3',kg:600,date:daysAgo(3),state:'bon',lost:0,synced:true}],
+    sales:[{id:'s1',lotId:'l1',kg:100,price:250,buyerId:'b1',date:new Date().toISOString(),synced:true}],
+    buyers:[{id:'b1',name:'Marché de Ourossogui',phone:'',kg:500,price:250,synced:true}]};
+}
+function audit(what,who){
+  db.audit.push({t:Date.now(),who:who||(session?session.name:'—'),what:what});
+  if(db.audit.length>60)db.audit=db.audit.slice(-60);
+}
+function prod(id){return db.producers.find(function(p){return p.id===id})}
+function lot(id){return db.lots.find(function(l){return l.id===id})}
+function salesOf(l){return db.sales.filter(function(s){return s.lotId===l.id})}
+function soldKg(l){return salesOf(l).reduce(function(a,s){return a+s.kg},0)}
+function stored(l){return Math.max(0,Math.round((l.kg-soldKg(l)-l.lost)*100)/100)}
+function myLots(){return session&&session.role==='prod'?db.lots.filter(function(l){return l.pid===session.pid}):db.lots}
+function totals(lots){
+  var t={dep:0,sold:0,lost:0,rev:0};
+  lots.forEach(function(l){t.dep+=l.kg;t.lost+=l.lost;salesOf(l).forEach(function(s){t.sold+=s.kg;t.rev+=s.kg*s.price})});
+  t.stock=t.dep-t.sold-t.lost;return t;
+}
+function pending(){
+  var n=0;db.lots.forEach(function(l){if(!l.synced)n++});db.sales.forEach(function(s){if(!s.synced)n++});db.buyers.forEach(function(b){if(!b.synced)n++});return n;
+}
+function isResp(){return session&&session.role==='resp'}
+
+/* ---------- météo (exemple) ---------- */
+var METEO={
+  source:'Exemple de démonstration. Le service météo sera choisi avec les producteurs (par exemple l’ANACIM).',
+  maj:'Mis à jour : lundi 16 novembre, 06 h 00 (exemple)',
+  days:[{d:'Lun',t:38,r:0},{d:'Mar',t:41,r:0},{d:'Mer',t:40,r:10},{d:'Jeu',t:36,r:70},{d:'Ven',t:37,r:20}]
+};
+var DAYN={Lun:'lundi',Mar:'mardi',Mer:'mercredi',Jeu:'jeudi',Ven:'vendredi'};
+function alerts(){
+  var a=[];
+  METEO.days.forEach(function(x){
+    if(x.r>=50)a.push({lv:'bad',day:x.d,title:'Pluie probable',text:'Rentrez les oignons qui sèchent, couvrez les tas et vérifiez la toiture avant la pluie.'});
+    else if(x.r>=20)a.push({lv:'warn',day:x.d,title:'Risque de pluie',text:'Gardez des bâches prêtes et surveillez le ciel.'});
+    if(x.t>=40)a.push({lv:'warn',day:x.d,title:'Forte chaleur',text:'Ne faites pas sécher les oignons entre 11 h et 16 h. Aérez le hangar tôt le matin et le soir.'});
+  });
+  var rank={bad:0,warn:1};
+  a.sort(function(p,q){return rank[p.lv]-rank[q.lv]});
+  return a;
+}
+
+/* ---------- conseils ---------- */
+var TIPS=[
+ {k:'tri',t:'Le tri',s:'Gardez seulement les oignons sains.',x:'Gardez seulement les oignons durs, sans blessure et sans moisissure. Mettez de côté ceux qui sont mous, coupés ou humides au collet. Vendez-les en premier.'},
+ {k:'sech',t:'Le séchage',s:'À l’ombre, bien aéré.',x:'Laissez sécher les oignons à l’ombre, dans un endroit aéré, jusqu’à ce que le collet soit sec et que la peau craque. Évitez le plein soleil et la pluie.'},
+ {k:'rang',t:'Le rangement',s:'Sur palettes, pas contre le mur.',x:'Posez les sacs sur des palettes surélevées, sans les coller au mur. Préférez des sacs ajourés, en filet, aux sacs fermés en plastique.'},
+ {k:'aer',t:'L’aération',s:'De l’air, pas d’humidité.',x:'Gardez les ouvertures libres pour que l’air circule. Protégez le stock de la pluie et de l’humidité du sol.'},
+ {k:'surv',t:'La surveillance',s:'Vérifiez chaque semaine.',x:'Chaque semaine, regardez le stock. Retirez tout de suite les oignons qui pourrissent, ils abîment les autres. Notez l’état dans l’application.'}
+];
+function speak(text){
+  try{
+    if(!('speechSynthesis' in window))throw 0;
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);u.lang='fr-FR';u.rate=.9;speechSynthesis.speak(u);
+  }catch(e){toast('Audio indisponible sur cet appareil. Les enregistrements en langues locales seront ajoutés avec les producteurs.')}
+}
+
+/* ---------- vues ---------- */
+function back(title){
+  return '<div class="pagehead"><button class="back" data-a="home">'+ic('back')+'<span>Accueil</span></button><h1>'+esc(title)+'</h1></div>';
+}
+function renderTop(){
+  $('#top').innerHTML=
+   '<div class="brand"><span class="logo">'+ic('onion',24)+'</span><span>OIGNON SAFE</span></div>'+
+   '<div class="top-r"><button class="chip net '+(ui.online?'on':'off')+'" data-a="net" title="Toucher pour simuler une coupure du réseau"><span class="dot"></span>'+(ui.online?'En ligne':'Hors connexion')+'</button>'+
+   (session?'<button class="chip" data-a="logout">Quitter</button>':'')+'</div>';
+}
+function vLogin(){
+  var opts=db.producers.map(function(p){return '<option value="'+esc(p.id)+'"'+(p.id===loginPid?' selected':'')+'>'+esc(p.name)+'</option>'}).join('');
+  var keys='';for(var i=1;i<=9;i++)keys+='<button class="key" data-a="key" data-v="'+i+'" aria-label="'+i+'">'+i+'</button>';
+  keys+='<span></span><button class="key" data-a="key" data-v="0" aria-label="0">0</button><button class="key s" data-a="del" aria-label="Effacer">Effacer</button>';
+  return '<section class="card"><h1>Bienvenue</h1><p class="muted">Choisissez qui vous êtes, puis tapez votre code à 4 chiffres.</p>'+
+   '<div class="seg"><button class="'+(role==='resp'?'on':'')+'" data-a="role" data-v="resp">Responsable</button><button class="'+(role==='prod'?'on':'')+'" data-a="role" data-v="prod">Producteur</button></div>'+
+   (role==='prod'?'<div><label for="who">Producteur</label><select id="who">'+(opts||'<option value="">Aucun producteur</option>')+'</select></div>':'')+
+   '<div class="dots" aria-label="Code saisi"><i></i><i></i><i></i><i></i></div><div class="pad">'+keys+'</div>'+
+   (db.demo?'<p class="hint"><b>Démonstration.</b> Responsable : 1234. Producteurs : Mamadou Ba 1111, Aïssata Sow 2222, Ousmane Diallo 3333.</p>':'')+
+   '</section>';
+}
+function vHome(){
+  var r=isResp(),pn=pending(),al=alerts();
+  var tiles='';
+  if(r)tiles+='<button class="tile hero" data-a="go" data-v="harvest"><span class="ico n">'+ic('onion',28)+'</span><span>Enregistrer une récolte<small>Nom, quantité, date</small></span></button>';
+  tiles+='<button class="tile" data-a="go" data-v="storage"><span class="ico g">'+ic('store',26)+'</span><span>'+(r?'Stockage':'Mes oignons')+'<small>'+(r?'État des lots':'Mon stock')+'</small></span></button>';
+  tiles+='<button class="tile" data-a="go" data-v="advice"><span class="ico a">'+ic('bulb',26)+'</span><span>Mes conseils<small>Écouter ou lire</small></span></button>';
+  tiles+='<button class="tile" data-a="go" data-v="buyers"><span class="ico v">'+ic('people',26)+'</span><span>Acheteurs<small>Offres de vente</small></span></button>';
+  tiles+='<button class="tile" data-a="go" data-v="balance"><span class="ico b">'+ic('chart',26)+'</span><span>Mon bilan<small>Stock, ventes, pertes</small></span></button>';
+  var top=al[0];
+  var meteo='<button class="alert '+(top?top.lv:'good')+'" style="border:0;text-align:left;width:100%;cursor:pointer;color:inherit" data-a="go" data-v="weather">'+ic(top?'warn':'sun',26)+
+    '<span><strong>'+(top?esc(DAYN[top.day]+' : '+top.title):'Pas d’alerte météo')+'</strong><span class="small" style="color:var(--ink)">Touchez pour voir la météo et la source.</span></span></button>';
+  var sync=r?'<div class="card"><div class="lot-head"><div><h2>Synchronisation</h2><p class="muted small">'+(pn?pn+' enregistrement'+(pn>1?'s':'')+' en attente':'Tout est à jour')+(db.lastSync?'. Dernière synchro : '+esc(ftime(db.lastSync)):'')+'</p></div><span class="pill '+(pn?'warn':'good')+'">'+(pn?'En attente':'À jour')+'</span></div>'+
+    '<button class="btn sm" data-a="sync"'+(pn?'':' disabled')+'>'+ic('sync',20)+'Synchroniser</button>'+
+    '<p class="muted small">Les données sont d’abord gardées sur le téléphone. Elles partent vers le serveur dès qu’il y a du réseau. Touchez l’état du réseau en haut pour simuler une coupure.</p></div>':'';
+  return '<section style="display:flex;flex-direction:column;gap:14px"><div><h1>Bonjour</h1><p class="muted">'+(r?'Espace responsable du stockage':esc(session.name))+'</p></div>'+meteo+'<div class="tiles">'+tiles+'</div>'+sync+
+    (r?'<button class="btn ghost" data-a="go" data-v="security">'+ic('shield',22)+'Sécurité et sauvegardes</button>':'')+'</section>';
+}
+function stateInfo(s){return s==='bon'?['good','Bon état']:s==='surveiller'?['warn','À surveiller']:['bad','Dégradé']}
+function vStorage(){
+  var r=isResp(),lots=myLots().slice().sort(function(a,b){return b.date<a.date?-1:1});
+  var html=back(r?'Stockage':'Mes oignons');
+  if(!lots.length)return html+'<div class="card"><p>Aucun lot pour le moment.</p></div>';
+  html+='<div style="display:flex;flex-direction:column;gap:12px">';
+  lots.forEach(function(l){
+    var p=prod(l.pid),st=stateInfo(l.state),o=ui.open&&ui.open.id===l.id?ui.open.mode:null;
+    html+='<article class="card"><div class="lot-head"><div><strong>'+esc(p?p.name:'Producteur supprimé')+'</strong><div class="muted small">Déposé le '+esc(fdate(l.date))+'</div></div><span class="pill '+st[0]+'">'+st[1]+'</span></div>'+
+     '<div class="big">'+fmt(stored(l))+' <small>kg en stock</small></div>'+
+     '<p class="muted small">Déposé '+fmt(l.kg)+' kg · vendu '+fmt(soldKg(l))+' kg · perdu '+fmt(l.lost)+' kg'+(l.synced?'':' <span class="tag">· en attente de synchro</span>')+'</p>';
+    if(r){
+      html+='<div class="states" role="group" aria-label="État du lot">'+
+        ['bon','surveiller','degrade'].map(function(k){var i=stateInfo(k);return '<button class="'+i[0]+(l.state===k?' on':'')+'" data-a="state" data-id="'+l.id+'" data-v="'+k+'">'+i[1]+'</button>'}).join('')+'</div>';
+      if(!o)html+='<div class="row"><button class="btn sm" data-a="open" data-id="'+l.id+'" data-v="sell">Vendre</button><button class="btn sm ghost" data-a="open" data-id="'+l.id+'" data-v="loss">Signaler une perte</button></div>';
+      if(o==='sell'){
+        html+='<div class="inline"><div><label for="f-kg">Quantité vendue (kg)</label><input id="f-kg" type="number" inputmode="decimal" min="0" step="any"></div>'+
+         '<div><label for="f-price">Prix (FCFA par kg)</label><input id="f-price" type="number" inputmode="numeric" min="0" step="any"></div>'+
+         '<div><label for="f-buyer">Acheteur (facultatif)</label><select id="f-buyer"><option value="">Non précisé</option>'+db.buyers.map(function(b){return '<option value="'+esc(b.id)+'">'+esc(b.name)+'</option>'}).join('')+'</select></div>'+
+         '<div class="row"><button class="btn sm accent" data-a="sell-ok">Enregistrer la vente</button><button class="btn sm ghost" data-a="cancel">Annuler</button></div></div>';
+      }
+      if(o==='loss'){
+        html+='<div class="inline"><div><label for="f-kg">Quantité perdue (kg)</label><input id="f-kg" type="number" inputmode="decimal" min="0" step="any"></div>'+
+         '<div class="row"><button class="btn sm accent" data-a="loss-ok">Enregistrer la perte</button><button class="btn sm ghost" data-a="cancel">Annuler</button></div></div>';
+      }
+    }
+    html+='</article>';
+  });
+  return html+'</div>';
+}
+function vHarvest(){
+  if(ui.done){
+    var d=ui.done;
+    return back('Récolte enregistrée')+'<section class="card"><span class="pill good" style="align-self:flex-start">Enregistré</span><p><b>'+esc(d.name)+'</b> : '+fmt(d.kg)+' kg le '+esc(fdate(d.date))+'.</p>'+
+     (d.pin?'<div class="hint"><b>Code du producteur : '+esc(d.pin)+'</b><br>Notez-le et remettez-le au producteur. Il ne sera plus affichable. Le producteur peut aussi se passer de compte.</div>':'')+
+     '<div class="row"><button class="btn accent" data-a="again">Enregistrer une autre récolte</button><button class="btn ghost" data-a="home">Retour à l’accueil</button></div></section>';
+  }
+  var none=!db.producers.length;
+  var opts=db.producers.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'}).join('');
+  return back('Enregistrer une récolte')+'<form class="card form" id="hform" autocomplete="off" novalidate>'+
+   '<div><label for="h-prod">Producteur</label><select id="h-prod">'+opts+'<option value="__new"'+(none?' selected':'')+'>+ Nouveau producteur</option></select></div>'+
+   '<div id="np" class="form" style="display:flex;flex-direction:column;gap:14px"'+(none?'':' hidden')+'>'+
+     '<div><label for="h-name">Nom du producteur</label><input id="h-name" type="text" autocomplete="off"></div>'+
+     '<div><label for="h-phone">Téléphone (facultatif)</label><input id="h-phone" type="tel" inputmode="tel"></div></div>'+
+   '<div><label for="h-kg">Quantité déposée (kg)</label><input id="h-kg" type="number" inputmode="decimal" min="0" step="any"></div>'+
+   '<div><label for="h-date">Date de stockage</label><input id="h-date" type="date" value="'+today()+'" max="'+today()+'"></div>'+
+   '<button class="btn accent" type="submit">Enregistrer</button></form>';
+}
+function vAdvice(){
+  var langs=[['fr','Français',1],['pu','Pulaar',0],['so','Soninké',0],['wo','Wolof',0]];
+  return back('Mes conseils')+'<div style="display:flex;flex-direction:column;gap:12px">'+
+   '<div class="card"><h2>Langue</h2><div class="langs">'+langs.map(function(l){return '<button class="'+(ui.lang===l[0]?'on':'')+'" data-a="lang" data-v="'+l[0]+'">'+l[1]+'</button>'}).join('')+'</div>'+
+   '<p class="muted small">'+(ui.lang==='fr'?'Les enregistrements audio en pulaar, soninké et wolof seront faits avec les producteurs des villages.':'L’enregistrement audio en cette langue sera fait avec les producteurs. Pour l’instant, la lecture se fait en français.')+'</p></div>'+
+   TIPS.map(function(t){return '<article class="card"><div class="lot-head"><div><h2>'+esc(t.t)+'</h2><p class="muted">'+esc(t.s)+'</p></div></div><p>'+esc(t.x)+'</p>'+
+     '<button class="btn sm" data-a="speak" data-v="'+t.k+'">'+ic('sound',22)+'Écouter</button></article>'}).join('')+
+   '<p class="muted small">Conseils d’exemple, à faire valider par un technicien agricole local.</p></div>';
+}
+function vBuyers(){
+  var r=isResp(),list=db.buyers;
+  var html=back('Acheteurs')+'<div style="display:flex;flex-direction:column;gap:12px">';
+  if(!list.length)html+='<div class="card"><p>Aucun acheteur enregistré.</p></div>';
+  list.forEach(function(b){
+    html+='<article class="card"><div class="lot-head"><div><strong>'+esc(b.name)+'</strong>'+(r&&b.phone?'<div class="muted small">Tél. '+esc(b.phone)+'</div>':'')+'</div>'+(r?'<button class="chip" data-a="del-buyer" data-id="'+b.id+'">Retirer</button>':'')+'</div>'+
+     '<p>Cherche <b>'+fmt(b.kg)+' kg</b> à <b>'+fmt(b.price)+' FCFA/kg</b>.</p></article>';
+  });
+  if(r){
+    html+='<form class="card form" id="bform" autocomplete="off" novalidate><h2>Ajouter un acheteur</h2>'+
+     '<div><label for="b-name">Nom</label><input id="b-name" type="text"></div>'+
+     '<div><label for="b-phone">Téléphone</label><input id="b-phone" type="tel" inputmode="tel"></div>'+
+     '<div><label for="b-kg">Quantité recherchée (kg)</label><input id="b-kg" type="number" inputmode="decimal" min="0" step="any"></div>'+
+     '<div><label for="b-price">Prix proposé (FCFA par kg)</label><input id="b-price" type="number" inputmode="numeric" min="0" step="any"></div>'+
+     '<button class="btn accent" type="submit">Ajouter</button></form>';
+  }
+  return html+'</div>';
+}
+function vBalance(){
+  var r=isResp(),lots=myLots(),t=totals(lots);
+  var loss=t.dep>0?Math.round(t.lost/t.dep*1000)/10:0;
+  var html=back('Mon bilan')+'<div style="display:flex;flex-direction:column;gap:12px"><div class="stats">'+
+   '<div class="stat"><b>'+fmt(t.stock)+' kg</b><span>En stock</span></div>'+
+   '<div class="stat"><b>'+fmt(t.sold)+' kg</b><span>Vendu</span></div>'+
+   '<div class="stat"><b>'+fmt(t.lost)+' kg</b><span>Détérioré ('+fmt(loss)+' %)</span></div>'+
+   '<div class="stat"><b>'+fmt(t.rev)+' FCFA</b><span>Recettes</span></div></div>';
+  if(r&&db.producers.length){
+    html+='<div class="card"><h2>Par producteur</h2><div class="scroll"><table><thead><tr><th>Nom</th><th>Déposé</th><th>Vendu</th><th>Perdu</th><th>FCFA</th></tr></thead><tbody>'+
+     db.producers.map(function(p){var x=totals(db.lots.filter(function(l){return l.pid===p.id}));return '<tr><td>'+esc(p.name)+'</td><td>'+fmt(x.dep)+'</td><td>'+fmt(x.sold)+'</td><td>'+fmt(x.lost)+'</td><td>'+fmt(x.rev)+'</td></tr>'}).join('')+
+     '</tbody></table></div></div>';
+  }
+  html+='<p class="muted small">Le taux de perte permet de mesurer l’effet du dispositif de stockage. Les kg sont ceux notés par le responsable.</p></div>';
+  return html;
+}
+function vWeather(){
+  var al=alerts();
+  return back('Météo et alertes')+'<div style="display:flex;flex-direction:column;gap:12px">'+
+   '<div class="card"><div class="days">'+METEO.days.map(function(d){return '<div><span class="small muted">'+d.d+'</span><b>'+d.t+'°</b><span class="small muted">'+d.r+' %</span></div>'}).join('')+'</div>'+
+   '<p class="muted small">Température maximale et risque de pluie.</p>'+
+   '<p class="small"><b>Source :</b> '+esc(METEO.source)+'</p><p class="small"><b>'+esc(METEO.maj)+'</b></p></div>'+
+   (al.length?al.map(function(a,i){return '<div class="alert '+a.lv+'">'+ic('warn',24)+'<div style="min-width:0"><strong>'+esc(DAYN[a.day]+' : '+a.title)+'</strong><p>'+esc(a.text)+'</p><button class="btn sm ghost" style="margin-top:8px;min-height:40px" data-a="speak-alert" data-v="'+i+'">'+ic('sound',18)+'Écouter</button></div></div>'}).join(''):'<div class="alert good">'+ic('sun',24)+'<div><strong>Pas d’alerte</strong></div></div>')+
+   '</div>';
+}
+function vSecurity(){
+  var log=db.audit.slice(-8).reverse();
+  return back('Sécurité et sauvegardes')+'<div style="display:flex;flex-direction:column;gap:12px">'+
+   '<div class="card"><h2>Protections de ce prototype</h2><ul class="clean small">'+
+    '<li>Connexion par code à 4 chiffres, enregistré sous forme hachée (SHA-256 avec sel).</li>'+
+    '<li>Blocage de 30 secondes après 3 codes faux.</li>'+
+    '<li>Deux rôles : le producteur ne voit que ses lots et ne peut rien modifier.</li>'+
+    '<li>La session n’est pas gardée : il faut se reconnecter à chaque ouverture.</li>'+
+    '<li>Journal des connexions et des actions.</li></ul>'+
+    '<p class="muted small">Pour la vraie version : authentification sur serveur, chiffrement de la base locale, sauvegardes automatiques chiffrées.</p></div>'+
+   '<div class="card"><h2>Code du responsable</h2><div><label for="newpin">Nouveau code (4 chiffres)</label><input id="newpin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></div><button class="btn sm" data-a="setpin">Changer le code</button></div>'+
+   '<div class="card"><h2>Sauvegarde</h2><p class="muted small">La sauvegarde contient les données personnelles des producteurs. Gardez-la en lieu sûr.</p>'+
+    '<button class="btn sm" data-a="backup">Afficher et copier la sauvegarde</button>'+
+    (ui.backup?'<textarea id="bk" readonly aria-label="Sauvegarde">'+esc(ui.backup)+'</textarea>':'')+
+    '<div><label for="restore">Restaurer une sauvegarde</label><textarea id="restore" placeholder="Collez ici la sauvegarde"></textarea></div>'+
+    '<button class="btn sm ghost" data-a="restore">Restaurer</button></div>'+
+   '<div class="card"><h2>Journal</h2>'+(log.length?log.map(function(e){return '<div class="logline"><span>'+esc(e.who)+' : '+esc(e.what)+'</span><span>'+esc(ftime(e.t))+'</span></div>'}).join(''):'<p class="muted">Rien pour le moment.</p>')+'</div>'+
+   (db.demo?'<div class="card"><h2>Données d’exemple</h2><p class="muted small">Efface les producteurs, lots, ventes et acheteurs d’exemple. Le code du responsable est conservé.</p>'+
+     (ui.confirm==='clear'?'<div class="row"><button class="btn sm danger" data-a="clear-ok">Oui, effacer</button><button class="btn sm ghost" data-a="cancel">Non</button></div>':'<button class="btn sm ghost" data-a="clear">Effacer les exemples</button>')+'</div>':'')+
+   '</div>';
+}
+
+/* ---------- rendu et navigation ---------- */
+var VIEWS={login:vLogin,home:vHome,harvest:vHarvest,storage:vStorage,advice:vAdvice,buyers:vBuyers,balance:vBalance,weather:vWeather,security:vSecurity};
+function render(){
+  if(!db)return;
+  if(!session)screen='login';
+  if(session&&session.role==='prod'&&(screen==='harvest'||screen==='security'))screen='home';
+  renderTop();
+  $('#view').innerHTML=(VIEWS[screen]||vHome)();
+  if(screen==='login')updateDots();
+}
+function go(s){screen=s;ui.open=null;ui.done=null;ui.confirm=null;ui.backup=null;render();try{window.scrollTo(0,0)}catch(e){}}
+function updateDots(){Array.prototype.forEach.call(document.querySelectorAll('.dots i'),function(el,i){el.classList.toggle('f',i<pin.length)})}
+
+/* ---------- connexion ---------- */
+async function submitPin(){
+  if(busy)return;busy=true;
+  try{
+    if(role==='prod')loginPid=val('who')||loginPid;
+    var key=role==='resp'?'resp':loginPid;
+    var acc=role==='resp'?db.manager:prod(loginPid);
+    var typed=pin;pin='';
+    if(!acc){toast('Choisissez un producteur.');return}
+    var lk=db.lock[key]||(db.lock[key]={n:0,until:0});
+    if(Date.now()<lk.until){toast('Trop d’essais. Attendez '+Math.ceil((lk.until-Date.now())/1000)+' secondes.');return}
+    var ok=(await hashPin(typed,acc.salt))===acc.hash;
+    if(!ok){
+      lk.n++;
+      audit('Code faux ('+(role==='resp'?'responsable':acc.name)+')','—');
+      if(lk.n>=3){lk.n=0;lk.until=Date.now()+30000;toast('Code faux. Accès bloqué 30 secondes.')}
+      else toast('Code faux. Essai '+lk.n+' sur 3.');
+      saveDb();return;
+    }
+    lk.n=0;lk.until=0;
+    session=role==='resp'?{role:'resp',name:'Responsable'}:{role:'prod',pid:acc.id,name:acc.name};
+    audit('Connexion');saveDb();go('home');
+  }finally{busy=false;if(screen==='login')updateDots()}
+}
+
+/* ---------- actions ---------- */
+async function act(el){
+  var a=el.getAttribute('data-a'),v=el.getAttribute('data-v'),id=el.getAttribute('data-id');
+  var needResp=['state','open','sell-ok','loss-ok','sync','del-buyer','backup','restore','setpin','clear','clear-ok'];
+  if(needResp.indexOf(a)>=0&&!isResp()){toast('Réservé au responsable.');return}
+  switch(a){
+    case 'role':role=v;pin='';render();break;
+    case 'key':if(pin.length<4){pin+=v;updateDots();if(pin.length===4)submitPin()}break;
+    case 'del':pin=pin.slice(0,-1);updateDots();break;
+    case 'logout':audit('Déconnexion');saveDb();session=null;pin='';go('login');break;
+    case 'home':go('home');break;
+    case 'go':go(v);break;
+    case 'again':ui.done=null;render();break;
+    case 'cancel':ui.open=null;ui.confirm=null;render();break;
+    case 'net':ui.online=!ui.online;renderTop();if(screen==='home')render();toast(ui.online?'Réseau disponible.':'Hors connexion : l’application continue de fonctionner.');break;
+    case 'lang':ui.lang=v;render();break;
+    case 'speak':var t=TIPS.find(function(x){return x.k===v});if(t)speak(t.t+'. '+t.x);break;
+    case 'speak-alert':var al=alerts()[Number(v)];if(al)speak(DAYN[al.day]+'. '+al.title+'. '+al.text);break;
+    case 'state':var l=lot(id);if(l){l.state=v;l.synced=false;audit('État du lot de '+(prod(l.pid)||{name:'?'}).name+' : '+stateInfo(v)[1]);saveDb();render()}break;
+    case 'open':ui.open={id:id,mode:v};render();break;
+    case 'sell-ok':{
+      var l2=lot(ui.open&&ui.open.id);if(!l2)break;
+      var kg=num('f-kg'),price=num('f-price');
+      if(!(kg>0)){toast('Indiquez les kg vendus.');break}
+      if(kg>stored(l2)){toast('Il ne reste que '+fmt(stored(l2))+' kg dans ce lot.');break}
+      if(!(price>0)){toast('Indiquez le prix par kg.');break}
+      db.sales.push({id:rnd(),lotId:l2.id,kg:kg,price:price,buyerId:val('f-buyer')||null,date:new Date().toISOString(),synced:false});
+      audit('Vente de '+fmt(kg)+' kg');saveDb();ui.open=null;render();toast('Vente enregistrée.');break}
+    case 'loss-ok':{
+      var l3=lot(ui.open&&ui.open.id);if(!l3)break;
+      var k2=num('f-kg');
+      if(!(k2>0)){toast('Indiquez les kg perdus.');break}
+      if(k2>stored(l3)){toast('Il ne reste que '+fmt(stored(l3))+' kg dans ce lot.');break}
+      l3.lost=Math.round((l3.lost+k2)*100)/100;l3.synced=false;
+      audit('Perte de '+fmt(k2)+' kg');saveDb();ui.open=null;render();toast('Perte enregistrée.');break}
+    case 'sync':
+      if(!ui.online){toast('Pas de réseau. Les données restent sur le téléphone.');break}
+      db.lots.forEach(function(x){x.synced=true});db.sales.forEach(function(x){x.synced=true});db.buyers.forEach(function(x){x.synced=true});
+      db.lastSync=Date.now();audit('Synchronisation (simulée)');saveDb();render();toast('Synchronisation terminée.');break;
+    case 'del-buyer':db.buyers=db.buyers.filter(function(b){return b.id!==id});audit('Acheteur retiré');saveDb();render();break;
+    case 'backup':
+      ui.backup=JSON.stringify(db);render();
+      try{await navigator.clipboard.writeText(ui.backup);toast('Sauvegarde copiée.')}catch(e){var bk=document.getElementById('bk');if(bk){bk.focus();bk.select()}toast('Sélectionnez le texte pour le copier.')}
+      break;
+    case 'restore':{
+      var raw=val('restore');if(!raw){toast('Collez d’abord une sauvegarde.');break}
+      try{var d=JSON.parse(raw);
+        if(!d||d.v!==1||!Array.isArray(d.lots)||!Array.isArray(d.producers)||!Array.isArray(d.sales)||!Array.isArray(d.buyers)||!d.manager||!d.manager.hash)throw 0;
+        d.lock=d.lock||{};d.audit=Array.isArray(d.audit)?d.audit:[];db=d;audit('Sauvegarde restaurée');saveDb();ui.backup=null;render();toast('Sauvegarde restaurée.');
+      }catch(e){toast('Cette sauvegarde n’est pas valide.')}
+      break}
+    case 'setpin':{
+      var np=val('newpin');
+      if(!/^\d{4}$/.test(np)){toast('Le code doit avoir 4 chiffres.');break}
+      if(np==='1234'||np==='0000'){toast('Choisissez un code moins facile à deviner.');break}
+      var c=await mkCred(np);db.manager=c;audit('Code du responsable changé');saveDb();render();toast('Code changé.');break}
+    case 'clear':ui.confirm='clear';render();break;
+    case 'clear-ok':db.producers=[];db.lots=[];db.sales=[];db.buyers=[];db.demo=false;ui.confirm=null;audit('Données d’exemple effacées');saveDb();render();toast('Exemples effacés.');break;
+  }
+}
+document.addEventListener('click',function(e){var el=e.target.closest('[data-a]');if(el&&!el.disabled)act(el)});
+document.addEventListener('change',function(e){
+  if(e.target.id==='who'){loginPid=e.target.value;pin='';updateDots()}
+  if(e.target.id==='h-prod'){var np=document.getElementById('np');if(np)np.hidden=e.target.value!=='__new'}
+});
+document.addEventListener('keydown',function(e){
+  if(screen!=='login'||session||e.target.closest('input,select,textarea'))return;
+  if(/^\d$/.test(e.key)&&pin.length<4){pin+=e.key;updateDots();if(pin.length===4)submitPin()}
+  else if(e.key==='Backspace'){pin=pin.slice(0,-1);updateDots()}
+});
+document.addEventListener('submit',async function(e){
+  e.preventDefault();
+  if(!isResp())return;
+  if(e.target.id==='hform'){
+    var sel=val('h-prod'),name='',pinOut=null,p;
+    if(sel==='__new'){
+      name=val('h-name');if(!name){toast('Écrivez le nom du producteur.');return}
+      pinOut=rndPin();var c=await mkCred(pinOut);
+      p={id:rnd(),name:name,phone:val('h-phone'),salt:c.salt,hash:c.hash};
+    }else{p=prod(sel);if(!p){toast('Choisissez un producteur.');return}}
+    var kg=num('h-kg'),d=val('h-date');
+    if(!(kg>0)){toast('Indiquez la quantité en kg.');return}
+    if(!d||d>today()){toast('Choisissez une date valide.');return}
+    if(sel==='__new')db.producers.push(p);
+    db.lots.push({id:rnd(),pid:p.id,kg:kg,date:d,state:'bon',lost:0,synced:false});
+    audit('Récolte de '+fmt(kg)+' kg pour '+p.name);saveDb();
+    ui.done={name:p.name,kg:kg,date:d,pin:pinOut};render();
+  }
+  if(e.target.id==='bform'){
+    var bn=val('b-name'),bk=num('b-kg'),bp=num('b-price');
+    if(!bn){toast('Écrivez le nom de l’acheteur.');return}
+    if(!(bk>0)||!(bp>0)){toast('Indiquez la quantité et le prix.');return}
+    db.buyers.push({id:rnd(),name:bn,phone:val('b-phone'),kg:bk,price:bp,synced:false});
+    audit('Acheteur ajouté');saveDb();render();toast('Acheteur ajouté.');
+  }
+});
+
+/* ---------- démarrage ---------- */
+(async function init(){
+  db=loadDb();
+  if(!db){db=await seed();saveDb()}
+  db.lock=db.lock||{};db.audit=db.audit||[];
+  render();
+})();
+})();
+</script>
+</body>
+</html>
