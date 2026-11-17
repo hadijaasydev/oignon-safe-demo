@@ -169,7 +169,8 @@ ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 (function(){
 'use strict';
 var KEY='oignonsafe.v1', mem=null, db=null;
-var PHONEKEY='oignonsafe.phone';
+var PHONEKEY='oignonsafe.phone',VKEY='oignonsafe.voices',LKEY='oignonsafe.lang';
+var voices={},mediaRec=null,chunks=[];
 var session=null, screen='login', lstep='phone', lphone='', lacc=null, busy=false;
 var ui={online:!(typeof navigator!=='undefined'&&navigator.onLine===false),open:null,ans:null,done:null,confirm:null,lang:'fr'};
 
@@ -349,6 +350,44 @@ function speak(text){
   }catch(e){toast('Audio indisponible sur cet appareil. Les enregistrements en langues locales seront ajoutés avec les producteurs.')}
 }
 
+/* ---------- voix en langues locales ---------- */
+var LANGS=[['fr','Français'],['wo','Wolof'],['pu','Pulaar'],['so','Soninké']];
+var LNAME={fr:'français',wo:'wolof',pu:'pulaar',so:'soninké'};
+var PH=[
+ {k:'q',t:'Qu’avez-vous fait de ces kilos ? Vendus, consommés ou perdus ?'},
+ {k:'montant',t:'Combien d’argent avez-vous reçu ?'},
+ {k:'pluie',t:'Attention, la pluie arrive. Rentrez les oignons.'},
+ {k:'chaleur',t:'Il fait très chaud. Ne faites pas sécher les oignons entre 11 heures et 16 heures.'},
+ {k:'demande',t:'Une plateforme cherche des oignons. Pouvez-vous en fournir ?'}];
+function phText(k){var x=PH.find(function(p){return p.k===k});return x?x.t:''}
+function saveVoices(){try{localStorage.setItem(VKEY,JSON.stringify(voices))}catch(e){toast('Mémoire du téléphone pleine : enregistrement non gardé.')}}
+function playData(src){try{var a=new Audio(src);var pr=a.play();if(pr&&pr.catch)pr.catch(function(){toast('Impossible de lire cet enregistrement.')})}catch(e){toast('Impossible de lire cet enregistrement.')}}
+/* Dans une autre langue que le français, on joue la voix enregistrée. S’il n’y en a pas, on lit en français. */
+function playPhrase(k,fallback){
+  if(ui.lang==='fr'){speak(fallback||phText(k));return}
+  var src=voices[ui.lang]&&voices[ui.lang][k];
+  if(src){playData(src);return}
+  toast('Pas encore de voix en '+LNAME[ui.lang]+' pour cette phrase. Lecture en français.');
+  speak(fallback||phText(k));
+}
+async function toggleRec(lang,key){
+  if(mediaRec&&mediaRec.state==='recording'){mediaRec.stop();return}
+  try{
+    if(!navigator.mediaDevices||!window.MediaRecorder)throw 0;
+    var stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    chunks=[];mediaRec=new MediaRecorder(stream);
+    mediaRec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
+    mediaRec.onstop=function(){
+      stream.getTracks().forEach(function(t){t.stop()});
+      var blob=new Blob(chunks,{type:mediaRec.mimeType||'audio/webm'}),fr=new FileReader();
+      fr.onload=function(){(voices[lang]=voices[lang]||{})[key]=fr.result;saveVoices();ui.rec=null;render();toast('Voix enregistrée.')};
+      fr.readAsDataURL(blob);
+    };
+    mediaRec.start();ui.rec={lang:lang,key:key};render();
+    setTimeout(function(){if(mediaRec&&mediaRec.state==='recording')mediaRec.stop()},20000);
+  }catch(e){ui.rec=null;toast('Micro non disponible. Autorisez le micro dans le navigateur.')}
+}
+
 /* ---------- vues ---------- */
 function back(title){
   return '<div class="pagehead"><button class="back" data-a="home">'+ic('back')+'<span>Accueil</span></button><h1>'+esc(title)+'</h1></div>';
@@ -360,10 +399,9 @@ function renderTop(){
    (session?'<button class="chip" data-a="logout">Quitter</button>':'')+'</div>';
 }
 function vLogin(){
-  var demo=db.demo&&lstep==='phone'?'<p class="hint"><b>Démonstration.</b> Responsable : 77 000 00 00, mot de passe 4827. Producteurs : Mamadou Ba 77 111 11 11 (3956), Aïssata Sow 77 222 22 22 (5280), Ousmane Diallo 77 333 33 33 (7413).</p>':'';
   if(lstep==='phone')return '<form class="card form" id="lform" novalidate><h1>Bienvenue</h1><p class="muted">Entrez votre numéro de téléphone.</p>'+
     '<div><label for="ph">Numéro de téléphone</label><input id="ph" type="tel" inputmode="tel" autocomplete="tel" placeholder="77 123 45 67" value="'+esc(fmtPhone(lphone))+'"></div>'+
-    '<button class="btn" type="submit">Continuer</button>'+demo+'</form>';
+    '<button class="btn" type="submit">Continuer</button></form>';
   if(lstep==='pass')return '<form class="card form" id="lform" novalidate><h1>Mot de passe</h1>'+
     '<div class="lot-head"><p>Numéro : <b>'+esc(fmtPhone(lphone))+'</b></p><button type="button" class="chip" data-a="chgphone">Changer</button></div>'+
     '<div><label for="pw">Mot de passe (4 chiffres)</label><input id="pw" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password"></div>'+
@@ -388,11 +426,12 @@ function vHome(){
   var wait=we.length?'<button class="alert warn" style="border:0;text-align:left;width:100%;cursor:pointer;color:inherit" data-a="go" data-v="storage">'+ic('store',26)+
     '<span><strong>'+we.length+' sortie'+(we.length>1?'s':'')+' en attente de réponse</strong><span class="small" style="color:var(--ink)">'+(r?'Demandez au producteur ce qu’il a fait de ses sacs.':'Dites ce que vous avez fait de vos sacs.')+'</span></span></button>':'';
   var req=op?'<button class="alert warn" style="border:0;text-align:left;width:100%;cursor:pointer;color:inherit" data-a="go" data-v="requests">'+ic('people',26)+'<span><strong>'+op+' demande'+(op>1?'s':'')+' d’achat à valider</strong><span class="small" style="color:var(--ink)">Une plateforme cherche des oignons. Dites si vous pouvez en fournir.</span></span></button>':'';
+  var langcard='<div class="card"><h2>Langue de la voix</h2><div class="langs">'+LANGS.map(function(l){return '<button class="'+(ui.lang===l[0]?'on':'')+'" data-a="lang" data-v="'+l[0]+'">'+l[1]+'</button>'}).join('')+'</div></div>';
   var sync=r?'<div class="card"><div class="lot-head"><div><h2>Synchronisation</h2><p class="muted small">'+(pn?pn+' enregistrement'+(pn>1?'s':'')+' en attente':'Tout est à jour')+(db.lastSync?'. Dernière synchro : '+esc(ftime(db.lastSync)):'')+'</p></div><span class="pill '+(pn?'warn':'good')+'">'+(pn?'En attente':'À jour')+'</span></div>'+
     '<button class="btn sm" data-a="sync"'+(pn?'':' disabled')+'>'+ic('sync',20)+'Synchroniser</button>'+
     '<p class="muted small">Les données sont d’abord gardées sur le téléphone. Elles partent vers le serveur dès qu’il y a du réseau. Touchez l’état du réseau en haut pour simuler une coupure.</p></div>':'';
-  return '<section style="display:flex;flex-direction:column;gap:14px"><div><h1>Bonjour</h1><p class="muted">'+(r?'Espace responsable du stockage':esc(session.name))+'</p></div>'+req+wait+meteo+'<div class="tiles">'+tiles+'</div>'+sync+
-    (r?'<button class="btn ghost" data-a="go" data-v="security">'+ic('shield',22)+'Sécurité et sauvegardes</button>':'')+'</section>';
+  return '<section style="display:flex;flex-direction:column;gap:14px"><div><h1>Bonjour</h1><p class="muted">'+(r?'Espace responsable du stockage':esc(session.name))+'</p></div>'+req+wait+meteo+'<div class="tiles">'+tiles+'</div>'+langcard+sync+
+    (r?'<button class="btn ghost" data-a="go" data-v="voices">'+ic('sound',22)+'Enregistrer les voix</button><button class="btn ghost" data-a="go" data-v="security">'+ic('shield',22)+'Sécurité et sauvegardes</button>':'')+'</section>';
 }
 function stateInfo(s){return s==='bon'?['good','Bon état']:s==='surveiller'?['warn','À surveiller']:['bad','Dégradé']}
 var USE={vendu:['good','Vendu'],consomme:['info','Consommé'],perdu:['bad','Perdu'],attente:['warn','En attente']};
@@ -421,7 +460,7 @@ function vStorage(){
       html+='<button class="btn sm ghost" data-a="speak-ask" data-id="'+e.id+'">'+ic('sound',22)+'Écouter la question</button>';
       if(ui.ans&&ui.ans.id===e.id){
         html+='<div><label for="f-amt">Montant total reçu (FCFA)</label><input id="f-amt" type="number" inputmode="numeric" min="0" step="any"></div>'+
-         '<div class="row"><button class="btn sm accent" data-a="ans-ok" data-id="'+e.id+'">Valider</button><button class="btn sm ghost" data-a="cancel">Annuler</button></div>';
+         '<button class="btn sm ghost" data-a="speak-amt">'+ic('sound',22)+'Écouter la question</button><div class="row"><button class="btn sm accent" data-a="ans-ok" data-id="'+e.id+'">Valider</button><button class="btn sm ghost" data-a="cancel">Annuler</button></div>';
       }else{
         html+='<div class="states ans"><button class="good" data-a="ans" data-id="'+e.id+'" data-v="vendu">'+ic('coin',34)+'Vendus</button><button class="warn" data-a="ans" data-id="'+e.id+'" data-v="consomme">'+ic('bowl',34)+'Consommés</button><button class="bad" data-a="ans" data-id="'+e.id+'" data-v="perdu">'+ic('trash',34)+'Perdus</button></div>';
       }
@@ -501,6 +540,19 @@ function vRequests(){
   });
   return html+'</div>';
 }
+function vVoices(){
+  var vl=ui.vl||'wo',have=voices[vl]||{};
+  var html=back('Voix des producteurs')+'<div style="display:flex;flex-direction:column;gap:12px">'+
+   '<p class="hint">Enregistrez chaque phrase avec la voix d’une personne du village. Dans ce prototype, les enregistrements restent sur ce téléphone. Dans la vraie version, ils seront intégrés à l’application pour tous.</p>'+
+   '<div class="card"><h2>Langue à enregistrer</h2><div class="langs">'+LANGS.filter(function(l){return l[0]!=='fr'}).map(function(l){return '<button class="'+(vl===l[0]?'on':'')+'" data-a="vlang" data-v="'+l[0]+'">'+l[1]+'</button>'}).join('')+'</div></div>';
+  PH.forEach(function(p){
+    var has=!!have[p.k],recNow=ui.rec&&ui.rec.lang===vl&&ui.rec.key===p.k;
+    html+='<article class="card"><div class="lot-head"><p>'+esc(p.t)+'</p><span class="pill '+(has?'good':'warn')+'">'+(has?'Enregistrée':'Manquante')+'</span></div>'+
+     '<div class="row"><button class="btn sm '+(recNow?'danger':'accent')+'" data-a="vrec" data-k="'+p.k+'">'+(recNow?'Arrêter':(has?'Réenregistrer':'Enregistrer'))+'</button>'+
+     (has?'<button class="btn sm ghost" data-a="vplay" data-k="'+p.k+'">'+ic('sound',20)+'Écouter</button><button class="btn sm ghost" data-a="vdel" data-k="'+p.k+'">Effacer</button>':'')+'</div></article>';
+  });
+  return html+'</div>';
+}
 function vBalance(){
   var r=isResp(),lots=myLots(),t=totals(lots);
   var loss=t.dep>0?Math.round(t.lost/t.dep*1000)/10:0;
@@ -553,11 +605,11 @@ function vSecurity(){
 }
 
 /* ---------- rendu et navigation ---------- */
-var VIEWS={login:vLogin,home:vHome,harvest:vHarvest,requests:vRequests,storage:vStorage,advice:vAdvice,balance:vBalance,weather:vWeather,security:vSecurity};
+var VIEWS={login:vLogin,home:vHome,harvest:vHarvest,voices:vVoices,requests:vRequests,storage:vStorage,advice:vAdvice,balance:vBalance,weather:vWeather,security:vSecurity};
 function render(){
   if(!db)return;
   if(!session)screen='login';
-  if(session&&session.role==='prod'&&(screen==='harvest'||screen==='security'))screen='home';
+  if(session&&session.role==='prod'&&(screen==='harvest'||screen==='security'||screen==='voices'))screen='home';
   renderTop();
   $('#view').innerHTML=(VIEWS[screen]||vHome)();
   if(screen==='login'){var fi=document.getElementById(lstep==='phone'?'ph':lstep==='pass'?'pw':'np1');if(fi)fi.focus()}
@@ -628,12 +680,25 @@ async function act(el){
     case 'again':ui.done=null;render();break;
     case 'cancel':ui.open=null;ui.ans=null;ui.confirm=null;render();break;
     case 'net':ui.online=!ui.online;renderTop();if(screen==='home')render();toast(ui.online?'Réseau disponible.':'Hors connexion : l’application continue de fonctionner.');break;
-    case 'lang':ui.lang=v;render();break;
+    case 'lang':ui.lang=v;try{localStorage.setItem(LKEY,v)}catch(e){}render();break;
+    case 'vlang':ui.vl=v;render();break;
+    case 'vrec':toggleRec(ui.vl||'wo',el.getAttribute('data-k'));break;
+    case 'vplay':{var vs=(voices[ui.vl||'wo']||{})[el.getAttribute('data-k')];if(vs)playData(vs);break}
+    case 'vdel':{var vk=el.getAttribute('data-k'),vl2=ui.vl||'wo';if(voices[vl2])delete voices[vl2][vk];saveVoices();render();break}
     case 'speak':var t=TIPS.find(function(x){return x.k===v});if(t)speak(t.t+'. '+t.x);break;
-    case 'speak-ask':{var xe=db.exits.find(function(x){return x.id===id});if(xe)speak('Qu’avez-vous fait de ces '+Math.round(xe.kg)+' kilos ? Vendus, consommés, ou perdus ?');break}
-    case 'speak-req':{var xq=db.requests.find(function(x){return x.id===id});if(xq){var xm=xq.props.find(function(x){return session&&x.pid===session.pid});speak('Une plateforme cherche '+Math.round(xq.kg)+' kilos d’oignons.'+(xm?' On vous demande '+Math.round(xm.kg)+' kilos. Pouvez-vous les fournir ?':''))}break}
-    case 'speak-bilan':{var xb=totals(myLots());speak('Votre bilan. Il y a '+Math.round(xb.stock)+' kilos en stock. '+Math.round(xb.wait)+' kilos sont sortis et attendent une réponse. '+Math.round(xb.sold)+' kilos ont été vendus, pour '+Math.round(xb.rev)+' francs CFA. '+Math.round(xb.conso)+' kilos ont été consommés, et '+Math.round(xb.lost)+' kilos sont perdus.');break}
-    case 'speak-alert':var al=alerts()[Number(v)];if(al)speak(DAYN[al.day]+'. '+al.title+'. '+al.text);break;
+    case 'speak-ask':{var xe=db.exits.find(function(x){return x.id===id});
+      if(ui.lang!=='fr')playPhrase('q');
+      else if(xe)speak('Qu’avez-vous fait de ces '+Math.round(xe.kg)+' kilos ? Vendus, consommés, ou perdus ?');
+      break}
+    case 'speak-amt':playPhrase('montant');break;
+    case 'speak-req':{var xq=db.requests.find(function(x){return x.id===id});
+      if(ui.lang!=='fr')playPhrase('demande');
+      else if(xq){var xm=xq.props.find(function(x){return session&&x.pid===session.pid});speak('Une plateforme cherche '+Math.round(xq.kg)+' kilos d’oignons.'+(xm?' On vous demande '+Math.round(xm.kg)+' kilos. Pouvez-vous les fournir ?':''))}
+      break}
+    case 'speak-bilan':{var xb=totals(myLots());
+      if(ui.lang!=='fr')toast('Le bilan parlé n’est disponible qu’en français pour l’instant.');
+      speak('Votre bilan. Il y a '+Math.round(xb.stock)+' kilos en stock. '+Math.round(xb.wait)+' kilos sont sortis et attendent une réponse. '+Math.round(xb.sold)+' kilos ont été vendus, pour '+Math.round(xb.rev)+' francs CFA. '+Math.round(xb.conso)+' kilos ont été consommés, et '+Math.round(xb.lost)+' kilos sont perdus.');break}
+    case 'speak-alert':var al=alerts()[Number(v)];if(al){var ak=/chaleur/i.test(al.title)?'chaleur':'pluie';if(ui.lang!=='fr')playPhrase(ak);else speak(DAYN[al.day]+'. '+al.title+'. '+al.text)}break;
     case 'state':var l=lot(id);if(l){l.state=v;l.synced=false;audit('État du lot de '+(prod(l.pid)||{name:'?'}).name+' : '+stateInfo(v)[1]);saveDb();render()}break;
     case 'req-new':{
       var rk=num('r-kg'),rn=val('r-name')||'Plateforme nationale';
@@ -732,6 +797,7 @@ document.addEventListener('submit',async function(e){
   db=loadDb();
   if(!db){db=await seed();saveDb()}
   else saveDb();
+  try{voices=JSON.parse(localStorage.getItem(VKEY)||'{}')||{};var sl=localStorage.getItem(LKEY);if(sl&&LNAME[sl])ui.lang=sl}catch(e){}
   try{var rp=localStorage.getItem(PHONEKEY);if(rp&&findAcc(rp)){lphone=rp;lstep='pass'}}catch(e){}
   render();
 })();
