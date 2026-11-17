@@ -118,6 +118,7 @@ textarea{padding:10px 12px;min-height:110px;font:.8rem/1.4 ui-monospace,Menlo,Co
 .states.ans button.good{border-color:var(--green);color:var(--green)}
 .states.ans button.warn{border-color:var(--amber);color:var(--amber)}
 .states.ans button.bad{border-color:var(--red);color:var(--red)}
+.states.ans button{min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:.95rem;border-width:3px}
 .inline{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:12px}
 .ask{background:var(--amber-tint);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
 
@@ -208,7 +209,12 @@ var P={
  shield:'<path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
  back:'<path d="M15 5l-7 7 7 7"/>',
  sync:'<path d="M20 11a8 8 0 0 0-14-4M4 13a8 8 0 0 0 14 4"/><path d="M6 3v4h4M18 21v-4h-4"/>',
- warn:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>'
+ warn:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+ coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.5c-.6-1-1.7-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.3 0-2.4-.5-3-1.5"/>',
+ bowl:'<path d="M3 12h18a9 7.5 0 0 1-18 0z"/><path d="M8 8c0-1.5 1-1.5 1-3M12 8c0-1.5 1-1.5 1-3M16 8c0-1.5 1-1.5 1-3"/>',
+ trash:'<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>',
+ check:'<path d="M4 12.5l5 5L20 6.5"/>',
+ cross:'<path d="M6 6l12 12M18 6L6 18"/>'
 };
 function ic(n,s){s=s||24;return '<svg class="ic" width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[n]+'</svg>'}
 
@@ -412,11 +418,12 @@ function vStorage(){
       if(e.status!=='attente'||!canAnswer(e))return;
       var who=p?p.name:'le producteur';
       html+='<div class="ask"><strong>'+(r?'Qu’a fait '+esc(who)+' de ces '+fmt(e.kg)+' kg ?':'Qu’avez-vous fait de ces '+fmt(e.kg)+' kg ?')+'</strong>';
+      html+='<button class="btn sm ghost" data-a="speak-ask" data-id="'+e.id+'">'+ic('sound',22)+'Écouter la question</button>';
       if(ui.ans&&ui.ans.id===e.id){
         html+='<div><label for="f-amt">Montant total reçu (FCFA)</label><input id="f-amt" type="number" inputmode="numeric" min="0" step="any"></div>'+
          '<div class="row"><button class="btn sm accent" data-a="ans-ok" data-id="'+e.id+'">Valider</button><button class="btn sm ghost" data-a="cancel">Annuler</button></div>';
       }else{
-        html+='<div class="states ans"><button class="good" data-a="ans" data-id="'+e.id+'" data-v="vendu">Vendus</button><button class="warn" data-a="ans" data-id="'+e.id+'" data-v="consomme">Consommés</button><button class="bad" data-a="ans" data-id="'+e.id+'" data-v="perdu">Perdus</button></div>';
+        html+='<div class="states ans"><button class="good" data-a="ans" data-id="'+e.id+'" data-v="vendu">'+ic('coin',34)+'Vendus</button><button class="warn" data-a="ans" data-id="'+e.id+'" data-v="consomme">'+ic('bowl',34)+'Consommés</button><button class="bad" data-a="ans" data-id="'+e.id+'" data-v="perdu">'+ic('trash',34)+'Perdus</button></div>';
       }
       html+='</div>';
     });
@@ -477,12 +484,13 @@ function vRequests(){
     var inf=reqInfo(q);
     html+='<article class="card"><div class="lot-head"><div><strong>'+esc(q.name)+'</strong><div class="muted small">Demande du '+esc(fdate(q.date))+'</div></div><span class="pill '+inf.pill[0]+'">'+inf.pill[1]+'</span></div>'+
      '<div class="big">'+fmt(q.kg)+' <small>kg demandés</small></div>';
+    if(!r)html+='<button class="btn sm ghost" data-a="speak-req" data-id="'+q.id+'">'+ic('sound',22)+'Écouter</button>';
     q.props.forEach(function(p){
       if(!r&&p.pid!==session.pid)return;
       var pr=prod(p.pid),mine=r||p.pid===session.pid;
       html+='<div class="ask"><strong>'+esc(pr?pr.name:'?')+' : '+fmt(p.kg)+' kg</strong>';
       if(p.answer===null&&mine){
-        html+='<div class="row"><button class="btn sm accent" data-a="req-ans" data-id="'+q.id+'" data-pid="'+p.pid+'" data-v="oui">'+(r?'Valide':'Je valide')+'</button><button class="btn sm ghost" data-a="req-ans" data-id="'+q.id+'" data-pid="'+p.pid+'" data-v="non">'+(r?'Refuse':'Je ne peux pas')+'</button></div>';
+        html+='<div class="row"><button class="btn sm accent" data-a="req-ans" data-id="'+q.id+'" data-pid="'+p.pid+'" data-v="oui">'+ic('check',24)+(r?'Valide':'Je valide')+'</button><button class="btn sm ghost" data-a="req-ans" data-id="'+q.id+'" data-pid="'+p.pid+'" data-v="non">'+ic('cross',24)+(r?'Refuse':'Je ne peux pas')+'</button></div>';
       }else{
         html+='<span class="pill '+(p.answer==='oui'?'good':p.answer==='non'?'bad':'warn')+'" style="align-self:flex-start">'+(p.answer==='oui'?'Validé':p.answer==='non'?'Refusé':'En attente')+'</span>';
       }
@@ -504,6 +512,7 @@ function vBalance(){
    '<div class="stat"><b>'+fmt(t.conso)+' kg</b><span>Consommé</span></div>'+
    '<div class="stat"><b>'+fmt(t.lost)+' kg</b><span>Détérioré ('+fmt(loss)+' %)</span></div></div>'+
    '<p class="muted small">Total déposé : '+fmt(t.dep)+' kg = stock + en attente + vendu + consommé + détérioré.</p>';
+  html+='<button class="btn sm" data-a="speak-bilan">'+ic('sound',22)+'Écouter mon bilan</button>';
   if(r&&db.producers.length){
     html+='<div class="card"><h2>Par producteur</h2><div class="scroll"><table><thead><tr><th>Nom</th><th>Déposé</th><th>Attente</th><th>Vendu</th><th>Perdu</th><th>FCFA</th></tr></thead><tbody>'+
      db.producers.map(function(p){var x=totals(db.lots.filter(function(l){return l.pid===p.id}));return '<tr><td>'+esc(p.name)+'</td><td>'+fmt(x.dep)+'</td><td>'+fmt(x.wait)+'</td><td>'+fmt(x.sold)+'</td><td>'+fmt(x.lost)+'</td><td>'+fmt(x.rev)+'</td></tr>'}).join('')+
@@ -621,6 +630,9 @@ async function act(el){
     case 'net':ui.online=!ui.online;renderTop();if(screen==='home')render();toast(ui.online?'Réseau disponible.':'Hors connexion : l’application continue de fonctionner.');break;
     case 'lang':ui.lang=v;render();break;
     case 'speak':var t=TIPS.find(function(x){return x.k===v});if(t)speak(t.t+'. '+t.x);break;
+    case 'speak-ask':{var xe=db.exits.find(function(x){return x.id===id});if(xe)speak('Qu’avez-vous fait de ces '+Math.round(xe.kg)+' kilos ? Vendus, consommés, ou perdus ?');break}
+    case 'speak-req':{var xq=db.requests.find(function(x){return x.id===id});if(xq){var xm=xq.props.find(function(x){return session&&x.pid===session.pid});speak('Une plateforme cherche '+Math.round(xq.kg)+' kilos d’oignons.'+(xm?' On vous demande '+Math.round(xm.kg)+' kilos. Pouvez-vous les fournir ?':''))}break}
+    case 'speak-bilan':{var xb=totals(myLots());speak('Votre bilan. Il y a '+Math.round(xb.stock)+' kilos en stock. '+Math.round(xb.wait)+' kilos sont sortis et attendent une réponse. '+Math.round(xb.sold)+' kilos ont été vendus, pour '+Math.round(xb.rev)+' francs CFA. '+Math.round(xb.conso)+' kilos ont été consommés, et '+Math.round(xb.lost)+' kilos sont perdus.');break}
     case 'speak-alert':var al=alerts()[Number(v)];if(al)speak(DAYN[al.day]+'. '+al.title+'. '+al.text);break;
     case 'state':var l=lot(id);if(l){l.state=v;l.synced=false;audit('État du lot de '+(prod(l.pid)||{name:'?'}).name+' : '+stateInfo(v)[1]);saveDb();render()}break;
     case 'req-new':{
