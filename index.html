@@ -168,7 +168,8 @@ ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 (function(){
 'use strict';
 var KEY='oignonsafe.v1', mem=null, db=null;
-var session=null, screen='login', role='resp', loginPid='', pin='', busy=false;
+var PHONEKEY='oignonsafe.phone';
+var session=null, screen='login', lstep='phone', lphone='', lacc=null, busy=false;
 var ui={online:!(typeof navigator!=='undefined'&&navigator.onLine===false),open:null,ans:null,done:null,confirm:null,lang:'fr'};
 
 /* ---------- utilitaires ---------- */
@@ -183,7 +184,9 @@ function daysSince(s){try{return Math.floor((new Date(today()+'T00:00:00')-new D
 function fdate(s){try{return new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}catch(e){return s}}
 function ftime(t){try{return new Date(t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
 function rnd(){try{return Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(8)),function(x){return pad2(x.toString(16))}).join('')}catch(e){return Math.random().toString(16).slice(2,18)}}
-function rndPin(){try{return String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,'0')}catch(e){return String(Math.floor(Math.random()*10000)).padStart(4,'0')}}
+function tempPw(){var a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789',o='';try{var r=crypto.getRandomValues(new Uint8Array(8));for(var i=0;i<8;i++)o+=a[r[i]%a.length]}catch(e){for(var j=0;j<8;j++)o+=a[Math.floor(Math.random()*a.length)]}return o}
+function normPhone(x){var d=String(x||'').replace(/\D/g,'');if(d.length>9&&d.indexOf('221')===0)d=d.slice(3);return d}
+function fmtPhone(d){return String(d).replace(/^(\d{2})(\d{3})(\d{2})(\d{2})$/,'$1 $2 $3 $4')}
 function val(id){var e=document.getElementById(id);return e?e.value.trim():''}
 function num(id){var v=val(id).replace(',','.');return v===''?NaN:Number(v)}
 var toastT;
@@ -204,10 +207,12 @@ var P={
 };
 function ic(n,s){s=s||24;return '<svg class="ic" width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[n]+'</svg>'}
 
-/* ---------- sécurité : hachage des codes ---------- */
+/* ---------- sécurité : hachage des mots de passe (PBKDF2 + sel) ---------- */
 async function hashPin(p,salt){
   try{ if(window.crypto&&crypto.subtle){
-    var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+':'+p));
+    var enc=new TextEncoder();
+    var k=await crypto.subtle.importKey('raw',enc.encode(p),'PBKDF2',false,['deriveBits']);
+    var b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode(salt),iterations:150000,hash:'SHA-256'},k,256);
     return Array.prototype.map.call(new Uint8Array(b),function(x){return pad2(x.toString(16))}).join('');
   }}catch(e){}
   var h=2166136261,s=salt+':'+p;
@@ -215,6 +220,11 @@ async function hashPin(p,salt){
   return 'f'+h.toString(16);
 }
 async function mkCred(p){var salt=rnd();return{salt:salt,hash:await hashPin(p,salt)}}
+function findAcc(ph){
+  if(db.manager.phone===ph)return{role:'resp',acc:db.manager};
+  var p=db.producers.find(function(x){return x.phone===ph});
+  return p?{role:'prod',acc:p}:null;
+}
 
 /* ---------- données ---------- */
 /* Les anciennes ventes (sales) deviennent des sorties déclarées « vendu ». */
@@ -223,26 +233,28 @@ function migrate(d){
     d.exits=(d.sales||[]).map(function(s){return{id:s.id,lotId:s.lotId,kg:s.kg,date:(s.date||'').slice(0,10)||today(),status:'vendu',amount:Math.round(s.kg*s.price),synced:!!s.synced}});
   }
   delete d.sales;delete d.buyers;
+  d.requests=Array.isArray(d.requests)?d.requests:[];
   d.lock=d.lock||{};d.audit=Array.isArray(d.audit)?d.audit:[];
   return d;
 }
-function loadDb(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.v===1&&Array.isArray(d.lots))return migrate(d)}}catch(e){}return mem}
+function loadDb(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.v===1&&Array.isArray(d.lots)&&d.manager&&d.manager.phone)return migrate(d)}}catch(e){}return mem}
 function saveDb(){mem=db;try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
 async function seed(){
-  var c1=await mkCred('1111'),c2=await mkCred('2222'),c3=await mkCred('3333');
+  var c1=await mkCred('Mamadou26'),c2=await mkCred('Aissata26'),c3=await mkCred('Ousmane26');
   return {v:1,demo:true,lastSync:null,lock:{},audit:[],
-    manager:await mkCred('1234'),
+    manager:Object.assign({phone:'770000000'},await mkCred('Hangar2026')),
     producers:[
-      {id:'p1',name:'Mamadou Ba',phone:'',salt:c1.salt,hash:c1.hash},
-      {id:'p2',name:'Aïssata Sow',phone:'',salt:c2.salt,hash:c2.hash},
-      {id:'p3',name:'Ousmane Diallo',phone:'',salt:c3.salt,hash:c3.hash}],
+      {id:'p1',name:'Mamadou Ba',phone:'771111111',salt:c1.salt,hash:c1.hash},
+      {id:'p2',name:'Aïssata Sow',phone:'772222222',salt:c2.salt,hash:c2.hash},
+      {id:'p3',name:'Ousmane Diallo',phone:'773333333',salt:c3.salt,hash:c3.hash}],
     lots:[
       {id:'l1',pid:'p1',kg:400,date:daysAgo(14),state:'bon',lost:0,synced:true},
       {id:'l2',pid:'p2',kg:250,date:daysAgo(9),state:'surveiller',lost:15,synced:true},
       {id:'l3',pid:'p3',kg:600,date:daysAgo(3),state:'bon',lost:0,synced:true}],
     exits:[
       {id:'e1',lotId:'l1',kg:100,date:daysAgo(5),status:'vendu',amount:25000,synced:true},
-      {id:'e2',lotId:'l2',kg:50,date:daysAgo(8),status:'attente',amount:0,synced:true}]};
+      {id:'e2',lotId:'l2',kg:50,date:daysAgo(8),status:'attente',amount:0,synced:true}],
+    requests:[{id:'r1',name:'Marché de gros (exemple)',kg:1000,date:daysAgo(0),short:0,props:[{pid:'p3',kg:600,answer:null},{pid:'p1',kg:300,answer:null},{pid:'p2',kg:100,answer:null}]}]};
 }
 function audit(what,who){
   db.audit.push({t:Date.now(),who:who||(session?session.name:'—'),what:what});
@@ -273,6 +285,22 @@ function pending(){
 }
 function isResp(){return session&&session.role==='resp'}
 function canAnswer(e){var l=lot(e.lotId);return isResp()||(session&&session.role==='prod'&&l&&l.pid===session.pid)}
+function availableFor(pid){return db.lots.filter(function(l){return l.pid===pid&&l.state!=='degrade'}).reduce(function(a,l){return a+stored(l)},0)}
+/* Une plateforme cherche X kg : on répartit entre les producteurs qui ont du stock en bon état, du plus gros stock au plus petit. */
+function buildProposals(kg){
+  var list=db.producers.map(function(p){return{pid:p.id,av:availableFor(p.id)}}).filter(function(x){return x.av>0}).sort(function(a,b){return b.av-a.av});
+  var left=kg,props=[];
+  list.forEach(function(x){if(left<=0)return;var t=Math.min(x.av,left);props.push({pid:x.pid,kg:t,answer:null});left-=t});
+  return{props:props,short:Math.max(0,left)};
+}
+function reqInfo(r){
+  var yes=0,wait=0;r.props.forEach(function(p){if(p.answer==='oui')yes+=p.kg;else if(p.answer===null)wait++});
+  if(wait)return{pill:['warn','En attente de réponses'],yes:yes};
+  if(yes>=r.kg)return{pill:['good','Confirmée'],yes:yes};
+  return{pill:['bad','Incomplète'],yes:yes};
+}
+function myReqs(){return isResp()?db.requests:db.requests.filter(function(r){return r.props.some(function(p){return p.pid===session.pid})})}
+function openProps(){var n=0;if(!session||isResp())return 0;db.requests.forEach(function(r){r.props.forEach(function(p){if(p.pid===session.pid&&p.answer===null)n++})});return n}
 function waitingExits(){return db.exits.filter(function(e){return e.status==='attente'&&canAnswer(e)})}
 
 /* ---------- météo (exemple) ---------- */
@@ -321,33 +349,38 @@ function renderTop(){
    (session?'<button class="chip" data-a="logout">Quitter</button>':'')+'</div>';
 }
 function vLogin(){
-  var opts=db.producers.map(function(p){return '<option value="'+esc(p.id)+'"'+(p.id===loginPid?' selected':'')+'>'+esc(p.name)+'</option>'}).join('');
-  var keys='';for(var i=1;i<=9;i++)keys+='<button class="key" data-a="key" data-v="'+i+'" aria-label="'+i+'">'+i+'</button>';
-  keys+='<span></span><button class="key" data-a="key" data-v="0" aria-label="0">0</button><button class="key s" data-a="del" aria-label="Effacer">Effacer</button>';
-  return '<section class="card"><h1>Bienvenue</h1><p class="muted">Choisissez qui vous êtes, puis tapez votre code à 4 chiffres.</p>'+
-   '<div class="seg"><button class="'+(role==='resp'?'on':'')+'" data-a="role" data-v="resp">Responsable</button><button class="'+(role==='prod'?'on':'')+'" data-a="role" data-v="prod">Producteur</button></div>'+
-   (role==='prod'?'<div><label for="who">Producteur</label><select id="who">'+(opts||'<option value="">Aucun producteur</option>')+'</select></div>':'')+
-   '<div class="dots" aria-label="Code saisi"><i></i><i></i><i></i><i></i></div><div class="pad">'+keys+'</div>'+
-   (db.demo?'<p class="hint"><b>Démonstration.</b> Responsable : 1234. Producteurs : Mamadou Ba 1111, Aïssata Sow 2222, Ousmane Diallo 3333.</p>':'')+
-   '</section>';
+  var demo=db.demo&&lstep==='phone'?'<p class="hint"><b>Démonstration.</b> Responsable : 77 000 00 00, mot de passe Hangar2026. Producteurs : Mamadou Ba 77 111 11 11 (Mamadou26), Aïssata Sow 77 222 22 22 (Aissata26), Ousmane Diallo 77 333 33 33 (Ousmane26).</p>':'';
+  if(lstep==='phone')return '<form class="card form" id="lform" novalidate><h1>Bienvenue</h1><p class="muted">Entrez votre numéro de téléphone.</p>'+
+    '<div><label for="ph">Numéro de téléphone</label><input id="ph" type="tel" inputmode="tel" autocomplete="tel" placeholder="77 123 45 67" value="'+esc(fmtPhone(lphone))+'"></div>'+
+    '<button class="btn" type="submit">Continuer</button>'+demo+'</form>';
+  if(lstep==='pass')return '<form class="card form" id="lform" novalidate><h1>Mot de passe</h1>'+
+    '<div class="lot-head"><p>Numéro : <b>'+esc(fmtPhone(lphone))+'</b></p><button type="button" class="chip" data-a="chgphone">Changer</button></div>'+
+    '<div><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="off"></div>'+
+    '<button type="button" class="back" data-a="showpw">Afficher le mot de passe</button>'+
+    '<button class="btn" type="submit">Se connecter</button></form>';
+  return '<form class="card form" id="lform" novalidate><h1>Choisissez votre mot de passe</h1><p class="muted">C’est votre première connexion. Choisissez un mot de passe personnel d’au moins 8 caractères.</p>'+
+    '<div><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" autocapitalize="off"></div>'+
+    '<div><label for="np2">Répétez le mot de passe</label><input id="np2" type="password" autocomplete="new-password" autocapitalize="off"></div>'+
+    '<button class="btn" type="submit">Enregistrer et entrer</button></form>';
 }
 function vHome(){
-  var r=isResp(),pn=pending(),al=alerts(),we=waitingExits();
+  var r=isResp(),pn=pending(),al=alerts(),we=waitingExits(),op=openProps();
   var tiles='';
   if(r)tiles+='<button class="tile hero" data-a="go" data-v="harvest"><span class="ico n">'+ic('onion',28)+'</span><span>Enregistrer une entrée<small>Producteur, kg, date</small></span></button>';
   tiles+='<button class="tile" data-a="go" data-v="storage"><span class="ico g">'+ic('store',26)+'</span><span>'+(r?'Stockage':'Mes oignons')+'<small>'+(r?'Entrées, sorties, état des lots':'Mon stock')+'</small></span></button>';
   tiles+='<button class="tile" data-a="go" data-v="advice"><span class="ico a">'+ic('bulb',26)+'</span><span>Mes conseils<small>Écouter ou lire</small></span></button>';
-  tiles+='<button class="tile" data-a="go" data-v="weather"><span class="ico v">'+ic('sun',26)+'</span><span>Météo<small>Alertes pour le hangar</small></span></button>';
+  tiles+='<button class="tile" data-a="go" data-v="requests"><span class="ico v">'+ic('people',26)+'</span><span>Demandes d’achat<small>Plateformes nationales</small></span></button>';
   tiles+='<button class="tile" data-a="go" data-v="balance"><span class="ico b">'+ic('chart',26)+'</span><span>Mon bilan<small>Stock, sorties, pertes</small></span></button>';
   var top=al[0];
   var meteo='<button class="alert '+(top?top.lv:'good')+'" style="border:0;text-align:left;width:100%;cursor:pointer;color:inherit" data-a="go" data-v="weather">'+ic(top?'warn':'sun',26)+
     '<span><strong>'+(top?esc(DAYN[top.day]+' : '+top.title):'Pas d’alerte météo')+'</strong><span class="small" style="color:var(--ink)">Touchez pour voir la météo et la source.</span></span></button>';
   var wait=we.length?'<button class="alert warn" style="border:0;text-align:left;width:100%;cursor:pointer;color:inherit" data-a="go" data-v="storage">'+ic('store',26)+
     '<span><strong>'+we.length+' sortie'+(we.length>1?'s':'')+' en attente de réponse</strong><span class="small" style="color:var(--ink)">'+(r?'Demandez au producteur ce qu’il a fait de ses sacs.':'Dites ce que vous avez fait de vos sacs.')+'</span></span></button>':'';
+  var req=op?'<button class="alert warn" style="border:0;text-align:left;width:100%;cursor:pointer;color:inherit" data-a="go" data-v="requests">'+ic('people',26)+'<span><strong>'+op+' demande'+(op>1?'s':'')+' d’achat à valider</strong><span class="small" style="color:var(--ink)">Une plateforme cherche des oignons. Dites si vous pouvez en fournir.</span></span></button>':'';
   var sync=r?'<div class="card"><div class="lot-head"><div><h2>Synchronisation</h2><p class="muted small">'+(pn?pn+' enregistrement'+(pn>1?'s':'')+' en attente':'Tout est à jour')+(db.lastSync?'. Dernière synchro : '+esc(ftime(db.lastSync)):'')+'</p></div><span class="pill '+(pn?'warn':'good')+'">'+(pn?'En attente':'À jour')+'</span></div>'+
     '<button class="btn sm" data-a="sync"'+(pn?'':' disabled')+'>'+ic('sync',20)+'Synchroniser</button>'+
     '<p class="muted small">Les données sont d’abord gardées sur le téléphone. Elles partent vers le serveur dès qu’il y a du réseau. Touchez l’état du réseau en haut pour simuler une coupure.</p></div>':'';
-  return '<section style="display:flex;flex-direction:column;gap:14px"><div><h1>Bonjour</h1><p class="muted">'+(r?'Espace responsable du stockage':esc(session.name))+'</p></div>'+wait+meteo+'<div class="tiles">'+tiles+'</div>'+sync+
+  return '<section style="display:flex;flex-direction:column;gap:14px"><div><h1>Bonjour</h1><p class="muted">'+(r?'Espace responsable du stockage':esc(session.name))+'</p></div>'+req+wait+meteo+'<div class="tiles">'+tiles+'</div>'+sync+
     (r?'<button class="btn ghost" data-a="go" data-v="security">'+ic('shield',22)+'Sécurité et sauvegardes</button>':'')+'</section>';
 }
 function stateInfo(s){return s==='bon'?['good','Bon état']:s==='surveiller'?['warn','À surveiller']:['bad','Dégradé']}
@@ -404,7 +437,7 @@ function vHarvest(){
   if(ui.done){
     var d=ui.done;
     return back('Entrée enregistrée')+'<section class="card"><span class="pill good" style="align-self:flex-start">Enregistré</span><p><b>'+esc(d.name)+'</b> : '+fmt(d.kg)+' kg le '+esc(fdate(d.date))+'.</p>'+
-     (d.pin?'<div class="hint"><b>Code du producteur : '+esc(d.pin)+'</b><br>Notez-le et remettez-le au producteur. Il ne sera plus affichable. Le producteur peut aussi se passer de compte.</div>':'')+
+     (d.pw?'<div class="hint"><b>Numéro : '+esc(fmtPhone(d.phone))+'</b><br><b>Mot de passe provisoire : '+esc(d.pw)+'</b><br>Remettez-le au producteur. Il ne sera plus affichable. À sa première connexion, le producteur choisira son propre mot de passe.</div>':'')+
      '<div class="row"><button class="btn accent" data-a="again">Enregistrer une autre entrée</button><button class="btn ghost" data-a="home">Retour à l’accueil</button></div></section>';
   }
   var none=!db.producers.length;
@@ -413,7 +446,7 @@ function vHarvest(){
    '<div><label for="h-prod">Producteur</label><select id="h-prod">'+opts+'<option value="__new"'+(none?' selected':'')+'>+ Nouveau producteur</option></select></div>'+
    '<div id="np" class="form" style="display:flex;flex-direction:column;gap:14px"'+(none?'':' hidden')+'>'+
      '<div><label for="h-name">Nom du producteur</label><input id="h-name" type="text" autocomplete="off"></div>'+
-     '<div><label for="h-phone">Téléphone (facultatif)</label><input id="h-phone" type="tel" inputmode="tel"></div></div>'+
+     '<div><label for="h-phone">Téléphone du producteur</label><input id="h-phone" type="tel" inputmode="tel" placeholder="77 123 45 67"></div></div>'+
    '<div><label for="h-kg">Quantité déposée (kg)</label><input id="h-kg" type="number" inputmode="decimal" min="0" step="any"></div>'+
    '<div><label for="h-date">Date de stockage</label><input id="h-date" type="date" value="'+today()+'" max="'+today()+'"></div>'+
    '<button class="btn accent" type="submit">Enregistrer</button></form>';
@@ -426,6 +459,34 @@ function vAdvice(){
    TIPS.map(function(t){return '<article class="card"><div class="lot-head"><div><h2>'+esc(t.t)+'</h2><p class="muted">'+esc(t.s)+'</p></div></div><p>'+esc(t.x)+'</p>'+
      '<button class="btn sm" data-a="speak" data-v="'+t.k+'">'+ic('sound',22)+'Écouter</button></article>'}).join('')+
    '<p class="muted small">Conseils d’exemple, à faire valider par un technicien agricole local.</p></div>';
+}
+function vRequests(){
+  var r=isResp(),list=myReqs().slice().reverse();
+  var html=back('Demandes d’achat')+'<div style="display:flex;flex-direction:column;gap:12px">'+
+   '<p class="hint">Vous ne vendez pas les oignons. Quand une grande plateforme en cherche, l’application regarde le stock du hangar et prévient les producteurs concernés. Chacun valide ou refuse. Le stock ne baisse que lorsque le responsable enregistre la sortie.</p>';
+  if(r)html+='<div class="card form"><h2>Simuler une demande</h2><div><label for="r-name">Plateforme</label><input id="r-name" type="text" placeholder="Plateforme nationale"></div>'+
+    '<div><label for="r-kg">Quantité cherchée (kg)</label><input id="r-kg" type="number" inputmode="decimal" min="0" step="any"></div>'+
+    '<button class="btn accent" data-a="req-new">Chercher dans le stock</button></div>';
+  if(!list.length)html+='<div class="card"><p>Aucune demande pour le moment.</p></div>';
+  list.forEach(function(q){
+    var inf=reqInfo(q);
+    html+='<article class="card"><div class="lot-head"><div><strong>'+esc(q.name)+'</strong><div class="muted small">Demande du '+esc(fdate(q.date))+'</div></div><span class="pill '+inf.pill[0]+'">'+inf.pill[1]+'</span></div>'+
+     '<div class="big">'+fmt(q.kg)+' <small>kg demandés</small></div>';
+    q.props.forEach(function(p){
+      if(!r&&p.pid!==session.pid)return;
+      var pr=prod(p.pid),mine=r||p.pid===session.pid;
+      html+='<div class="ask"><strong>'+esc(pr?pr.name:'?')+' : '+fmt(p.kg)+' kg</strong>';
+      if(p.answer===null&&mine){
+        html+='<div class="row"><button class="btn sm accent" data-a="req-ans" data-id="'+q.id+'" data-pid="'+p.pid+'" data-v="oui">'+(r?'Valide':'Je valide')+'</button><button class="btn sm ghost" data-a="req-ans" data-id="'+q.id+'" data-pid="'+p.pid+'" data-v="non">'+(r?'Refuse':'Je ne peux pas')+'</button></div>';
+      }else{
+        html+='<span class="pill '+(p.answer==='oui'?'good':p.answer==='non'?'bad':'warn')+'" style="align-self:flex-start">'+(p.answer==='oui'?'Validé':p.answer==='non'?'Refusé':'En attente')+'</span>';
+      }
+      html+='</div>';
+    });
+    if(r)html+='<p class="muted small">Confirmé : '+fmt(inf.yes)+' kg sur '+fmt(q.kg)+'.'+(q.short>0?' Stock insuffisant : il manque '+fmt(q.short)+' kg.':'')+'</p>';
+    html+='</article>';
+  });
+  return html+'</div>';
 }
 function vBalance(){
   var r=isResp(),lots=myLots(),t=totals(lots);
@@ -459,13 +520,13 @@ function vSecurity(){
   var log=db.audit.slice(-8).reverse();
   return back('Sécurité et sauvegardes')+'<div style="display:flex;flex-direction:column;gap:12px">'+
    '<div class="card"><h2>Protections de ce prototype</h2><ul class="clean small">'+
-    '<li>Connexion par code à 4 chiffres, enregistré sous forme hachée (SHA-256 avec sel).</li>'+
-    '<li>Blocage de 30 secondes après 3 codes faux.</li>'+
+    '<li>Connexion par numéro de téléphone et mot de passe (8 caractères minimum). Le mot de passe est protégé par un hachage PBKDF2 avec sel et n’est jamais gardé en clair.</li>'+
+    '<li>Blocage de 30 secondes après 3 mots de passe faux. Le message d’erreur ne dit pas si le numéro existe.</li>'+
     '<li>Deux rôles : le producteur ne voit que ses lots, ne peut pas enregistrer d’entrée ni de sortie, et répond seulement pour ses propres sorties.</li>'+
-    '<li>La session n’est pas gardée : il faut se reconnecter à chaque ouverture.</li>'+
+    '<li>Le numéro est mémorisé sur l’appareil. Le mot de passe est redemandé à chaque ouverture.</li>'+
     '<li>Journal des connexions et des actions.</li></ul>'+
-    '<p class="muted small">Pour la vraie version : authentification sur serveur, chiffrement de la base locale, sauvegardes automatiques chiffrées.</p></div>'+
-   '<div class="card"><h2>Code du responsable</h2><div><label for="newpin">Nouveau code (4 chiffres)</label><input id="newpin" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></div><button class="btn sm" data-a="setpin">Changer le code</button></div>'+
+    '<p class="muted small">Pour la vraie version : vérification du numéro par SMS, authentification sur serveur, chiffrement de la base locale, sauvegardes automatiques chiffrées.</p></div>'+
+   '<div class="card"><h2>Mot de passe du responsable</h2><div><label for="sp1">Nouveau mot de passe (8 caractères minimum)</label><input id="sp1" type="password" autocomplete="new-password" autocapitalize="off"></div><div><label for="sp2">Répétez le mot de passe</label><input id="sp2" type="password" autocomplete="new-password" autocapitalize="off"></div><button class="btn sm" data-a="setpw">Changer le mot de passe</button></div>'+
    '<div class="card"><h2>Sauvegarde</h2><p class="muted small">La sauvegarde contient les données personnelles des producteurs. Gardez-la en lieu sûr.</p>'+
     '<button class="btn sm" data-a="backup">Afficher et copier la sauvegarde</button>'+
     (ui.backup?'<textarea id="bk" readonly aria-label="Sauvegarde">'+esc(ui.backup)+'</textarea>':'')+
@@ -478,41 +539,57 @@ function vSecurity(){
 }
 
 /* ---------- rendu et navigation ---------- */
-var VIEWS={login:vLogin,home:vHome,harvest:vHarvest,storage:vStorage,advice:vAdvice,balance:vBalance,weather:vWeather,security:vSecurity};
+var VIEWS={login:vLogin,home:vHome,harvest:vHarvest,requests:vRequests,storage:vStorage,advice:vAdvice,balance:vBalance,weather:vWeather,security:vSecurity};
 function render(){
   if(!db)return;
   if(!session)screen='login';
   if(session&&session.role==='prod'&&(screen==='harvest'||screen==='security'))screen='home';
   renderTop();
   $('#view').innerHTML=(VIEWS[screen]||vHome)();
-  if(screen==='login')updateDots();
+  if(screen==='login'){var fi=document.getElementById(lstep==='phone'?'ph':lstep==='pass'?'pw':'np1');if(fi)fi.focus()}
 }
 function go(s){screen=s;ui.open=null;ui.ans=null;ui.done=null;ui.confirm=null;ui.backup=null;render();try{window.scrollTo(0,0)}catch(e){}}
-function updateDots(){Array.prototype.forEach.call(document.querySelectorAll('.dots i'),function(el,i){el.classList.toggle('f',i<pin.length)})}
 
-/* ---------- connexion ---------- */
-async function submitPin(){
+/* ---------- connexion : numéro de téléphone, puis mot de passe ---------- */
+function startSession(f){
+  session=f.role==='resp'?{role:'resp',name:'Responsable'}:{role:'prod',pid:f.acc.id,name:f.acc.name};
+  lacc=null;audit('Connexion');saveDb();go('home');
+}
+async function doLogin(){
   if(busy)return;busy=true;
   try{
-    if(role==='prod')loginPid=val('who')||loginPid;
-    var key=role==='resp'?'resp':loginPid;
-    var acc=role==='resp'?db.manager:prod(loginPid);
-    var typed=pin;pin='';
-    if(!acc){toast('Choisissez un producteur.');return}
-    var lk=db.lock[key]||(db.lock[key]={n:0,until:0});
-    if(Date.now()<lk.until){toast('Trop d’essais. Attendez '+Math.ceil((lk.until-Date.now())/1000)+' secondes.');return}
-    var ok=(await hashPin(typed,acc.salt))===acc.hash;
-    if(!ok){
-      lk.n++;
-      audit('Code faux ('+(role==='resp'?'responsable':acc.name)+')','—');
-      if(lk.n>=3){lk.n=0;lk.until=Date.now()+30000;toast('Code faux. Accès bloqué 30 secondes.')}
-      else toast('Code faux. Essai '+lk.n+' sur 3.');
-      saveDb();return;
+    if(lstep==='phone'){
+      var ph=normPhone(val('ph'));
+      if(ph.length!==9){toast('Entrez un numéro à 9 chiffres.');return}
+      lphone=ph;lstep='pass';render();return;
     }
-    lk.n=0;lk.until=0;
-    session=role==='resp'?{role:'resp',name:'Responsable'}:{role:'prod',pid:acc.id,name:acc.name};
-    audit('Connexion');saveDb();go('home');
-  }finally{busy=false;if(screen==='login')updateDots()}
+    if(lstep==='pass'){
+      var pw=document.getElementById('pw').value;
+      if(!pw){toast('Entrez votre mot de passe.');return}
+      var key='ph:'+lphone,lk=db.lock[key]||(db.lock[key]={n:0,until:0});
+      if(Date.now()<lk.until){toast('Trop d’essais. Attendez '+Math.ceil((lk.until-Date.now())/1000)+' secondes.');return}
+      var f=findAcc(lphone),ok=false;
+      ok=(await hashPin(pw,f?f.acc.salt:'inconnu'))===(f?f.acc.hash:'-');
+      if(!ok){
+        lk.n++;audit('Connexion refusée ('+fmtPhone(lphone)+')','—');
+        if(lk.n>=3){lk.n=0;lk.until=Date.now()+30000;toast('Numéro ou mot de passe incorrect. Accès bloqué 30 secondes.')}
+        else toast('Numéro ou mot de passe incorrect. Essai '+lk.n+' sur 3.');
+        saveDb();document.getElementById('pw').value='';return;
+      }
+      lk.n=0;lk.until=0;
+      try{localStorage.setItem(PHONEKEY,lphone)}catch(e){}
+      if(f.acc.mustChange){lacc=f;lstep='newpw';render();return}
+      startSession(f);return;
+    }
+    if(lstep==='newpw'){
+      var p1=document.getElementById('np1').value,p2=document.getElementById('np2').value;
+      if(p1.length<8){toast('Le mot de passe doit avoir au moins 8 caractères.');return}
+      if(p1!==p2){toast('Les deux mots de passe sont différents.');return}
+      if(p1.replace(/\D/g,'')===lphone){toast('Choisissez un mot de passe différent du numéro.');return}
+      var c=await mkCred(p1);lacc.acc.salt=c.salt;lacc.acc.hash=c.hash;delete lacc.acc.mustChange;
+      audit('Mot de passe choisi',lacc.acc.name||'Responsable');startSession(lacc);
+    }
+  }finally{busy=false}
 }
 
 /* ---------- actions ---------- */
@@ -526,13 +603,12 @@ function resolveExit(id,status,amount){
 }
 async function act(el){
   var a=el.getAttribute('data-a'),v=el.getAttribute('data-v'),id=el.getAttribute('data-id');
-  var needResp=['state','open','exit-ok','loss-ok','sync','backup','restore','setpin','clear','clear-ok'];
+  var needResp=['req-new','state','open','exit-ok','loss-ok','sync','backup','restore','setpw','clear','clear-ok'];
   if(needResp.indexOf(a)>=0&&!isResp()){toast('Réservé au responsable.');return}
   switch(a){
-    case 'role':role=v;pin='';render();break;
-    case 'key':if(pin.length<4){pin+=v;updateDots();if(pin.length===4)submitPin()}break;
-    case 'del':pin=pin.slice(0,-1);updateDots();break;
-    case 'logout':audit('Déconnexion');saveDb();session=null;pin='';go('login');break;
+    case 'chgphone':lphone='';lstep='phone';try{localStorage.removeItem(PHONEKEY)}catch(e){}render();break;
+    case 'showpw':var pwi=document.getElementById('pw');if(pwi){pwi.type=pwi.type==='password'?'text':'password';el.textContent=pwi.type==='password'?'Afficher le mot de passe':'Masquer le mot de passe'}break;
+    case 'logout':audit('Déconnexion');saveDb();session=null;lstep=lphone?'pass':'phone';go('login');break;
     case 'home':go('home');break;
     case 'go':go(v);break;
     case 'again':ui.done=null;render();break;
@@ -542,6 +618,21 @@ async function act(el){
     case 'speak':var t=TIPS.find(function(x){return x.k===v});if(t)speak(t.t+'. '+t.x);break;
     case 'speak-alert':var al=alerts()[Number(v)];if(al)speak(DAYN[al.day]+'. '+al.title+'. '+al.text);break;
     case 'state':var l=lot(id);if(l){l.state=v;l.synced=false;audit('État du lot de '+(prod(l.pid)||{name:'?'}).name+' : '+stateInfo(v)[1]);saveDb();render()}break;
+    case 'req-new':{
+      var rk=num('r-kg'),rn=val('r-name')||'Plateforme nationale';
+      if(!(rk>0)){toast('Indiquez la quantité cherchée.');break}
+      var bp=buildProposals(rk);
+      if(!bp.props.length){toast('Aucun stock disponible en bon état.');break}
+      db.requests.push({id:rnd(),name:rn,kg:rk,date:today(),props:bp.props,short:bp.short});
+      audit('Demande de '+fmt(rk)+' kg ('+rn+')');saveDb();render();
+      toast(bp.props.length+' producteur'+(bp.props.length>1?'s':'')+' prévenu'+(bp.props.length>1?'s':'')+'.');break}
+    case 'req-ans':{
+      var q=db.requests.find(function(x){return x.id===id}),pid=el.getAttribute('data-pid');
+      var pp=q&&q.props.find(function(x){return x.pid===pid});
+      if(!pp||pp.answer!==null)break;
+      if(!(isResp()||(session&&session.role==='prod'&&session.pid===pid))){toast('Cette demande ne vous concerne pas.');break}
+      pp.answer=v;audit('Demande '+q.name+' : '+fmt(pp.kg)+' kg '+(v==='oui'?'validés':'refusés')+' ('+(prod(pid)||{name:'?'}).name+')');
+      saveDb();render();toast(v==='oui'?'Validé.':'Refus enregistré.');break}
     case 'open':ui.open={id:id,mode:v};ui.ans=null;render();break;
     case 'exit-ok':{
       var l2=lot(ui.open&&ui.open.id);if(!l2)break;
@@ -577,38 +668,37 @@ async function act(el){
     case 'restore':{
       var raw=val('restore');if(!raw){toast('Collez d’abord une sauvegarde.');break}
       try{var d=JSON.parse(raw);
-        if(!d||d.v!==1||!Array.isArray(d.lots)||!Array.isArray(d.producers)||!(Array.isArray(d.exits)||Array.isArray(d.sales))||!d.manager||!d.manager.hash)throw 0;
+        if(!d||d.v!==1||!Array.isArray(d.lots)||!Array.isArray(d.producers)||!(Array.isArray(d.exits)||Array.isArray(d.sales))||!d.manager||!d.manager.hash||!d.manager.phone)throw 0;
         db=migrate(d);audit('Sauvegarde restaurée');saveDb();ui.backup=null;render();toast('Sauvegarde restaurée.');
       }catch(e){toast('Cette sauvegarde n’est pas valide.')}
       break}
-    case 'setpin':{
-      var np=val('newpin');
-      if(!/^\d{4}$/.test(np)){toast('Le code doit avoir 4 chiffres.');break}
-      if(np==='1234'||np==='0000'){toast('Choisissez un code moins facile à deviner.');break}
-      var c=await mkCred(np);db.manager=c;audit('Code du responsable changé');saveDb();render();toast('Code changé.');break}
+    case 'setpw':{
+      var s1=document.getElementById('sp1').value,s2=document.getElementById('sp2').value;
+      if(s1.length<8){toast('Le mot de passe doit avoir au moins 8 caractères.');break}
+      if(s1!==s2){toast('Les deux mots de passe sont différents.');break}
+      if(s1==='Hangar2026'||s1.replace(/\D/g,'')===db.manager.phone){toast('Choisissez un mot de passe moins facile à deviner.');break}
+      var c=await mkCred(s1);db.manager.salt=c.salt;db.manager.hash=c.hash;audit('Mot de passe du responsable changé');saveDb();render();toast('Mot de passe changé.');break}
     case 'clear':ui.confirm='clear';render();break;
-    case 'clear-ok':db.producers=[];db.lots=[];db.exits=[];db.demo=false;ui.confirm=null;audit('Données d’exemple effacées');saveDb();render();toast('Exemples effacés.');break;
+    case 'clear-ok':db.producers=[];db.lots=[];db.exits=[];db.requests=[];db.demo=false;ui.confirm=null;audit('Données d’exemple effacées');saveDb();render();toast('Exemples effacés.');break;
   }
 }
 document.addEventListener('click',function(e){var el=e.target.closest('[data-a]');if(el&&!el.disabled)act(el)});
 document.addEventListener('change',function(e){
-  if(e.target.id==='who'){loginPid=e.target.value;pin='';updateDots()}
   if(e.target.id==='h-prod'){var np=document.getElementById('np');if(np)np.hidden=e.target.value!=='__new'}
-});
-document.addEventListener('keydown',function(e){
-  if(screen!=='login'||session||e.target.closest('input,select,textarea'))return;
-  if(/^\d$/.test(e.key)&&pin.length<4){pin+=e.key;updateDots();if(pin.length===4)submitPin()}
-  else if(e.key==='Backspace'){pin=pin.slice(0,-1);updateDots()}
 });
 document.addEventListener('submit',async function(e){
   e.preventDefault();
+  if(e.target.id==='lform'){doLogin();return}
   if(!isResp())return;
   if(e.target.id==='hform'){
     var sel=val('h-prod'),name='',pinOut=null,p;
     if(sel==='__new'){
       name=val('h-name');if(!name){toast('Écrivez le nom du producteur.');return}
-      pinOut=rndPin();var c=await mkCred(pinOut);
-      p={id:rnd(),name:name,phone:val('h-phone'),salt:c.salt,hash:c.hash};
+      var nph=normPhone(val('h-phone'));
+      if(nph.length!==9){toast('Entrez le numéro du producteur (9 chiffres).');return}
+      if(findAcc(nph)){toast('Ce numéro est déjà inscrit.');return}
+      pinOut=tempPw();var c=await mkCred(pinOut);
+      p={id:rnd(),name:name,phone:nph,salt:c.salt,hash:c.hash,mustChange:true};
     }else{p=prod(sel);if(!p){toast('Choisissez un producteur.');return}}
     var kg=num('h-kg'),d=val('h-date');
     if(!(kg>0)){toast('Indiquez la quantité en kg.');return}
@@ -616,7 +706,7 @@ document.addEventListener('submit',async function(e){
     if(sel==='__new')db.producers.push(p);
     db.lots.push({id:rnd(),pid:p.id,kg:kg,date:d,state:'bon',lost:0,synced:false});
     audit('Entrée de '+fmt(kg)+' kg pour '+p.name);saveDb();
-    ui.done={name:p.name,kg:kg,date:d,pin:pinOut};render();
+    ui.done={name:p.name,kg:kg,date:d,pw:pinOut,phone:p.phone};render();
   }
 });
 
@@ -625,12 +715,23 @@ document.addEventListener('submit',async function(e){
   db=loadDb();
   if(!db){db=await seed();saveDb()}
   else saveDb();
+  try{var rp=localStorage.getItem(PHONEKEY);if(rp&&findAcc(rp)){lphone=rp;lstep='pass'}}catch(e){}
   render();
 })();
 })();
 </script>
 </body>
 </html>
+
+
+    
+
+    
+      
+  
+    
+
+
 
 
  
