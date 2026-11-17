@@ -184,7 +184,12 @@ function daysSince(s){try{return Math.floor((new Date(today()+'T00:00:00')-new D
 function fdate(s){try{return new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}catch(e){return s}}
 function ftime(t){try{return new Date(t).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
 function rnd(){try{return Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(8)),function(x){return pad2(x.toString(16))}).join('')}catch(e){return Math.random().toString(16).slice(2,18)}}
-function tempPw(){var a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789',o='';try{var r=crypto.getRandomValues(new Uint8Array(8));for(var i=0;i<8;i++)o+=a[r[i]%a.length]}catch(e){for(var j=0;j<8;j++)o+=a[Math.floor(Math.random()*a.length)]}return o}
+function weakPin(p,phone){
+  if(/^(\d)\1{3}$/.test(p))return true;
+  if('01234567890123456789'.indexOf(p)>=0||'98765432109876543210'.indexOf(p)>=0)return true;
+  return !!phone&&String(phone).slice(-4)===p;
+}
+function tempPw(){var p;do{try{p=String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,'0')}catch(e){p=String(Math.floor(Math.random()*10000)).padStart(4,'0')}}while(weakPin(p));return p}
 function normPhone(x){var d=String(x||'').replace(/\D/g,'');if(d.length>9&&d.indexOf('221')===0)d=d.slice(3);return d}
 function fmtPhone(d){return String(d).replace(/^(\d{2})(\d{3})(\d{2})(\d{2})$/,'$1 $2 $3 $4')}
 function val(id){var e=document.getElementById(id);return e?e.value.trim():''}
@@ -237,12 +242,12 @@ function migrate(d){
   d.lock=d.lock||{};d.audit=Array.isArray(d.audit)?d.audit:[];
   return d;
 }
-function loadDb(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.v===1&&Array.isArray(d.lots)&&d.manager&&d.manager.phone)return migrate(d)}}catch(e){}return mem}
+function loadDb(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.v===1&&Array.isArray(d.lots)&&d.pwv===2&&d.manager&&d.manager.phone)return migrate(d)}}catch(e){}return mem}
 function saveDb(){mem=db;try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
 async function seed(){
-  var c1=await mkCred('Mamadou26'),c2=await mkCred('Aissata26'),c3=await mkCred('Ousmane26');
-  return {v:1,demo:true,lastSync:null,lock:{},audit:[],
-    manager:Object.assign({phone:'770000000'},await mkCred('Hangar2026')),
+  var c1=await mkCred('3956'),c2=await mkCred('5280'),c3=await mkCred('7413');
+  return {v:1,pwv:2,demo:true,lastSync:null,lock:{},audit:[],
+    manager:Object.assign({phone:'770000000'},await mkCred('4827')),
     producers:[
       {id:'p1',name:'Mamadou Ba',phone:'771111111',salt:c1.salt,hash:c1.hash},
       {id:'p2',name:'Aïssata Sow',phone:'772222222',salt:c2.salt,hash:c2.hash},
@@ -349,18 +354,18 @@ function renderTop(){
    (session?'<button class="chip" data-a="logout">Quitter</button>':'')+'</div>';
 }
 function vLogin(){
-  var demo=db.demo&&lstep==='phone'?'<p class="hint"><b>Démonstration.</b> Responsable : 77 000 00 00, mot de passe Hangar2026. Producteurs : Mamadou Ba 77 111 11 11 (Mamadou26), Aïssata Sow 77 222 22 22 (Aissata26), Ousmane Diallo 77 333 33 33 (Ousmane26).</p>':'';
+  var demo=db.demo&&lstep==='phone'?'<p class="hint"><b>Démonstration.</b> Responsable : 77 000 00 00, mot de passe 4827. Producteurs : Mamadou Ba 77 111 11 11 (3956), Aïssata Sow 77 222 22 22 (5280), Ousmane Diallo 77 333 33 33 (7413).</p>':'';
   if(lstep==='phone')return '<form class="card form" id="lform" novalidate><h1>Bienvenue</h1><p class="muted">Entrez votre numéro de téléphone.</p>'+
     '<div><label for="ph">Numéro de téléphone</label><input id="ph" type="tel" inputmode="tel" autocomplete="tel" placeholder="77 123 45 67" value="'+esc(fmtPhone(lphone))+'"></div>'+
     '<button class="btn" type="submit">Continuer</button>'+demo+'</form>';
   if(lstep==='pass')return '<form class="card form" id="lform" novalidate><h1>Mot de passe</h1>'+
     '<div class="lot-head"><p>Numéro : <b>'+esc(fmtPhone(lphone))+'</b></p><button type="button" class="chip" data-a="chgphone">Changer</button></div>'+
-    '<div><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="off"></div>'+
+    '<div><label for="pw">Mot de passe (4 chiffres)</label><input id="pw" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password"></div>'+
     '<button type="button" class="back" data-a="showpw">Afficher le mot de passe</button>'+
     '<button class="btn" type="submit">Se connecter</button></form>';
-  return '<form class="card form" id="lform" novalidate><h1>Choisissez votre mot de passe</h1><p class="muted">C’est votre première connexion. Choisissez un mot de passe personnel d’au moins 8 caractères.</p>'+
-    '<div><label for="np1">Nouveau mot de passe</label><input id="np1" type="password" autocomplete="new-password" autocapitalize="off"></div>'+
-    '<div><label for="np2">Répétez le mot de passe</label><input id="np2" type="password" autocomplete="new-password" autocapitalize="off"></div>'+
+  return '<form class="card form" id="lform" novalidate><h1>Choisissez votre mot de passe</h1><p class="muted">C’est votre première connexion. Choisissez un mot de passe personnel de 4 chiffres, que vous seul connaissez. Évitez 1234 ou 0000.</p>'+
+    '<div><label for="np1">Nouveau mot de passe (4 chiffres)</label><input id="np1" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password"></div>'+
+    '<div><label for="np2">Répétez le mot de passe</label><input id="np2" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password"></div>'+
     '<button class="btn" type="submit">Enregistrer et entrer</button></form>';
 }
 function vHome(){
@@ -520,13 +525,13 @@ function vSecurity(){
   var log=db.audit.slice(-8).reverse();
   return back('Sécurité et sauvegardes')+'<div style="display:flex;flex-direction:column;gap:12px">'+
    '<div class="card"><h2>Protections de ce prototype</h2><ul class="clean small">'+
-    '<li>Connexion par numéro de téléphone et mot de passe (8 caractères minimum). Le mot de passe est protégé par un hachage PBKDF2 avec sel et n’est jamais gardé en clair.</li>'+
-    '<li>Blocage de 30 secondes après 3 mots de passe faux. Le message d’erreur ne dit pas si le numéro existe.</li>'+
+    '<li>Connexion par numéro de téléphone et mot de passe à 4 chiffres, comme les applications de paiement mobile. Le mot de passe est protégé par un hachage PBKDF2 avec sel et n’est jamais gardé en clair. Les codes trop faciles (0000, 1234, fin du numéro) sont refusés.</li>'+
+    '<li>Blocage après 3 mots de passe faux : 30 secondes, puis de plus en plus long à chaque nouvelle série d’erreurs. Le message d’erreur ne dit pas si le numéro existe.</li>'+
     '<li>Deux rôles : le producteur ne voit que ses lots, ne peut pas enregistrer d’entrée ni de sortie, et répond seulement pour ses propres sorties.</li>'+
     '<li>Le numéro est mémorisé sur l’appareil. Le mot de passe est redemandé à chaque ouverture.</li>'+
     '<li>Journal des connexions et des actions.</li></ul>'+
     '<p class="muted small">Pour la vraie version : vérification du numéro par SMS, authentification sur serveur, chiffrement de la base locale, sauvegardes automatiques chiffrées.</p></div>'+
-   '<div class="card"><h2>Mot de passe du responsable</h2><div><label for="sp1">Nouveau mot de passe (8 caractères minimum)</label><input id="sp1" type="password" autocomplete="new-password" autocapitalize="off"></div><div><label for="sp2">Répétez le mot de passe</label><input id="sp2" type="password" autocomplete="new-password" autocapitalize="off"></div><button class="btn sm" data-a="setpw">Changer le mot de passe</button></div>'+
+   '<div class="card"><h2>Mot de passe du responsable</h2><div><label for="sp1">Nouveau mot de passe (4 chiffres)</label><input id="sp1" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password"></div><div><label for="sp2">Répétez le mot de passe</label><input id="sp2" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password"></div><button class="btn sm" data-a="setpw">Changer le mot de passe</button></div>'+
    '<div class="card"><h2>Sauvegarde</h2><p class="muted small">La sauvegarde contient les données personnelles des producteurs. Gardez-la en lieu sûr.</p>'+
     '<button class="btn sm" data-a="backup">Afficher et copier la sauvegarde</button>'+
     (ui.backup?'<textarea id="bk" readonly aria-label="Sauvegarde">'+esc(ui.backup)+'</textarea>':'')+
@@ -565,27 +570,27 @@ async function doLogin(){
     }
     if(lstep==='pass'){
       var pw=document.getElementById('pw').value;
-      if(!pw){toast('Entrez votre mot de passe.');return}
+      if(pw.length!==4){toast('Entrez les 4 chiffres de votre mot de passe.');return}
       var key='ph:'+lphone,lk=db.lock[key]||(db.lock[key]={n:0,until:0});
       if(Date.now()<lk.until){toast('Trop d’essais. Attendez '+Math.ceil((lk.until-Date.now())/1000)+' secondes.');return}
       var f=findAcc(lphone),ok=false;
       ok=(await hashPin(pw,f?f.acc.salt:'inconnu'))===(f?f.acc.hash:'-');
       if(!ok){
         lk.n++;audit('Connexion refusée ('+fmtPhone(lphone)+')','—');
-        if(lk.n>=3){lk.n=0;lk.until=Date.now()+30000;toast('Numéro ou mot de passe incorrect. Accès bloqué 30 secondes.')}
+        if(lk.n>=3){var wait=30*Math.pow(2,Math.min(lk.lv||0,5));lk.n=0;lk.lv=(lk.lv||0)+1;lk.until=Date.now()+wait*1000;toast('Numéro ou mot de passe incorrect. Accès bloqué '+(wait>=60?Math.round(wait/60)+' minute'+(wait>=120?'s':''):wait+' secondes')+'.')}
         else toast('Numéro ou mot de passe incorrect. Essai '+lk.n+' sur 3.');
         saveDb();document.getElementById('pw').value='';return;
       }
-      lk.n=0;lk.until=0;
+      lk.n=0;lk.lv=0;lk.until=0;
       try{localStorage.setItem(PHONEKEY,lphone)}catch(e){}
       if(f.acc.mustChange){lacc=f;lstep='newpw';render();return}
       startSession(f);return;
     }
     if(lstep==='newpw'){
       var p1=document.getElementById('np1').value,p2=document.getElementById('np2').value;
-      if(p1.length<8){toast('Le mot de passe doit avoir au moins 8 caractères.');return}
+      if(!/^\d{4}$/.test(p1)){toast('Le mot de passe doit avoir exactement 4 chiffres.');return}
       if(p1!==p2){toast('Les deux mots de passe sont différents.');return}
-      if(p1.replace(/\D/g,'')===lphone){toast('Choisissez un mot de passe différent du numéro.');return}
+      if(weakPin(p1,lphone)){toast('Code trop facile à deviner. Évitez 1234, 0000 ou la fin de votre numéro.');return}
       var c=await mkCred(p1);lacc.acc.salt=c.salt;lacc.acc.hash=c.hash;delete lacc.acc.mustChange;
       audit('Mot de passe choisi',lacc.acc.name||'Responsable');startSession(lacc);
     }
@@ -668,15 +673,15 @@ async function act(el){
     case 'restore':{
       var raw=val('restore');if(!raw){toast('Collez d’abord une sauvegarde.');break}
       try{var d=JSON.parse(raw);
-        if(!d||d.v!==1||!Array.isArray(d.lots)||!Array.isArray(d.producers)||!(Array.isArray(d.exits)||Array.isArray(d.sales))||!d.manager||!d.manager.hash||!d.manager.phone)throw 0;
+        if(!d||d.v!==1||!Array.isArray(d.lots)||!Array.isArray(d.producers)||!(Array.isArray(d.exits)||Array.isArray(d.sales))||!d.manager||!d.manager.hash||!d.manager.phone||d.pwv!==2)throw 0;
         db=migrate(d);audit('Sauvegarde restaurée');saveDb();ui.backup=null;render();toast('Sauvegarde restaurée.');
       }catch(e){toast('Cette sauvegarde n’est pas valide.')}
       break}
     case 'setpw':{
       var s1=document.getElementById('sp1').value,s2=document.getElementById('sp2').value;
-      if(s1.length<8){toast('Le mot de passe doit avoir au moins 8 caractères.');break}
+      if(!/^\d{4}$/.test(s1)){toast('Le mot de passe doit avoir exactement 4 chiffres.');break}
       if(s1!==s2){toast('Les deux mots de passe sont différents.');break}
-      if(s1==='Hangar2026'||s1.replace(/\D/g,'')===db.manager.phone){toast('Choisissez un mot de passe moins facile à deviner.');break}
+      if(weakPin(s1,db.manager.phone)){toast('Code trop facile à deviner. Évitez 1234, 0000 ou la fin de votre numéro.');break}
       var c=await mkCred(s1);db.manager.salt=c.salt;db.manager.hash=c.hash;audit('Mot de passe du responsable changé');saveDb();render();toast('Mot de passe changé.');break}
     case 'clear':ui.confirm='clear';render();break;
     case 'clear-ok':db.producers=[];db.lots=[];db.exits=[];db.requests=[];db.demo=false;ui.confirm=null;audit('Données d’exemple effacées');saveDb();render();toast('Exemples effacés.');break;
@@ -722,26 +727,3 @@ document.addEventListener('submit',async function(e){
 </script>
 </body>
 </html>
-
-
-    
-
-    
-      
-  
-    
-
-
-
-
- 
-    
-
-  
-  
-  
-     
-  
-
-
-   
